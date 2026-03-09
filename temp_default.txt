@@ -1,0 +1,4 @@
+            run_smoke_test: false,
+            last_probe: None,
+            logs: "准备就绪。已预填充默认配置，可直接点击【检测接口】或【一键部署】。"
+                .to_string(),
