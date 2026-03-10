@@ -9,7 +9,7 @@ export default function TitleBar() {
             className="h-8 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 select-none"
         >
             <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-gray-300">OpenClaw Manager</span>
+                <span className="text-sm font-semibold text-gray-300">openClaw-mind</span>
             </div>
 
             <div className="flex items-center gap-1">

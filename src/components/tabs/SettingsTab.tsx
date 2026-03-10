@@ -212,7 +212,7 @@ export default function SettingsTab() {
                     <div className="space-y-3 text-sm">
                         <div className="flex justify-between">
                             <span className="text-gray-400">应用名称</span>
-                            <span className="text-white">OpenClaw Manager</span>
+                            <span className="text-white">openClaw-mind</span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-gray-400">版本</span>
@@ -230,7 +230,7 @@ export default function SettingsTab() {
 
                     <div className="mt-4 pt-4 border-t border-gray-700">
                         <a
-                            href="https://github.com/openclaw/openclaw-manager"
+                            href="https://github.com/openclaw/openclaw-mind"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-400 hover:text-blue-300 text-sm"
