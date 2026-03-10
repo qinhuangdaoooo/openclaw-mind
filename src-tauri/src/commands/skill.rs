@@ -89,64 +89,21 @@ pub async fn install_skill_stream(
     app: AppHandle,
     workspace_path: String,
     skill_slug: String,
+    skill_service: State<'_, SkillService>,
 ) -> Result<(), String> {
-    use std::process::Stdio;
-    use tokio::io::{AsyncBufReadExt, BufReader};
-    use tokio::process::Command;
-    
-    let workspace = std::path::PathBuf::from(shellexpand::tilde(&workspace_path).to_string());
-    
-    if !workspace.exists() {
-        return Err(format!("工作区不存在: {}", workspace.display()));
-    }
-    
-    // 启动后台任务执行安装（Windows 上使用 npx.cmd）
-    tauri::async_runtime::spawn(async move {
-        let mut cmd = if cfg!(target_os = "windows") {
-            Command::new("npx.cmd")
-        } else {
-            Command::new("npx")
-        };
+    // 克隆 service，在后台任务中使用
+    let service = skill_service.inner().clone();
 
-        let mut child = match cmd
-            .args(&["-y", "@openclaw/cli", "skill", "add", &skill_slug])
-            .current_dir(&workspace)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-        {
-            Ok(c) => c,
-            Err(e) => {
-                let _ = app.emit("skill-install-log", format!("错误: {}", e));
-                let _ = app.emit("skill-install-complete", false);
-                return;
-            }
-        };
-        
-        // 读取 stdout
-        if let Some(stdout) = child.stdout.take() {
-            let reader = BufReader::new(stdout);
-            let mut lines = reader.lines();
-            
-            while let Ok(Some(line)) = lines.next_line().await {
-                let _ = app.emit("skill-install-log", line);
-            }
-        }
-        
-        // 读取 stderr
-        if let Some(stderr) = child.stderr.take() {
-            let reader = BufReader::new(stderr);
-            let mut lines = reader.lines();
-            
-            while let Ok(Some(line)) = lines.next_line().await {
-                let _ = app.emit("skill-install-log", format!("stderr: {}", line));
-            }
-        }
-        
-        // 等待进程完成
-        match child.wait().await {
-            Ok(status) => {
-                let _ = app.emit("skill-install-complete", status.success());
+    tauri::async_runtime::spawn(async move {
+        let _ = app.emit(
+            "skill-install-log",
+            format!("开始安装技能 `{}` 到工作区 `{}`", skill_slug, workspace_path),
+        );
+
+        match service.install(&workspace_path, &skill_slug).await {
+            Ok(()) => {
+                let _ = app.emit("skill-install-log", "✓ 安装完成".to_string());
+                let _ = app.emit("skill-install-complete", true);
             }
             Err(e) => {
                 let _ = app.emit("skill-install-log", format!("错误: {}", e));
@@ -154,7 +111,7 @@ pub async fn install_skill_stream(
             }
         }
     });
-    
+
     Ok(())
 }
 
