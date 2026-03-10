@@ -1,6 +1,6 @@
-# OpenClaw Manager 构建脚本 (Windows PowerShell)
+# openClaw-mind 构建脚本 (Windows PowerShell)
 
-Write-Host "🚀 OpenClaw Manager 构建脚本" -ForegroundColor Cyan
+Write-Host "🚀 openClaw-mind 构建脚本" -ForegroundColor Cyan
 Write-Host ""
 
 # 检查环境

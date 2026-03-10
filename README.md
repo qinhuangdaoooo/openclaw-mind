@@ -1,8 +1,8 @@
-# OpenClaw Squad
+# openClaw-mind
 
 <div align="center">
 
-![OpenClaw Squad](https://img.shields.io/badge/OpenClaw-Squad-blue)
+![openClaw-mind](https://img.shields.io/badge/openClaw-mind-blue)
 ![Version](https://img.shields.io/badge/version-0.1.0-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
@@ -249,5 +249,5 @@ MIT License
 ---
 
 <div align="center">
-Made with ❤️ by OpenClaw Squad
+Made with ❤️ by openClaw-mind
 </div>

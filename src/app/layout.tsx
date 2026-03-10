@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-    title: 'OpenClaw Manager',
-    description: 'OpenClaw Desktop Manager',
+    title: 'openClaw-mind',
+    description: 'openClaw-mind Desktop',
 }
 
 export default function RootLayout({

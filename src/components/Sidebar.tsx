@@ -19,9 +19,9 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         <div className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
             <div className="p-4 border-b border-gray-800">
                 <h2 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                    OpenClaw
+                    OpenClaw Mind
                 </h2>
-                <p className="text-xs text-gray-500 mt-1">Manager v0.1.0</p>
+                <p className="text-xs text-gray-500 mt-1">v0.1.0</p>
             </div>
 
             <nav className="flex-1 p-2">
