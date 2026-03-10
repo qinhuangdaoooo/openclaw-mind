@@ -1,0 +1,65 @@
+{
+    "$schema": "https://schema.tauri.app/config/2",
+    "productName": "OpenClaw Manager",
+    "version": "0.1.0",
+    "identifier": "com.openclaw.manager",
+    "build": {
+        "beforeDevCommand": "npm run dev",
+        "beforeBuildCommand": "npm run build",
+        "devUrl": "http://localhost:3000",
+        "frontendDist": "../out"
+    },
+    "bundle": {
+        "active": true,
+        "targets": "all",
+        "icon": [
+            "icons/32x32.png",
+            "icons/128x128.png",
+            "icons/icon.icns",
+            "icons/icon.ico"
+        ],
+        "publisher": "OpenClaw Team",
+        "copyright": "Copyright © 2026 OpenClaw Team",
+        "category": "DeveloperTool",
+        "shortDescription": "OpenClaw 配置管理工具",
+        "longDescription": "OpenClaw Manager 是一个现代化的桌面应用，用于管理 OpenClaw 的配置、Agent、技能和远程部署。",
+        "windows": {
+            "certificateThumbprint": null,
+            "digestAlgorithm": "sha256",
+            "timestampUrl": ""
+        },
+        "macOS": {
+            "minimumSystemVersion": "10.13",
+            "exceptionDomain": ""
+        }
+    },
+    "app": {
+        "windows": [
+            {
+                "title": "OpenClaw Manager",
+                "width": 1200,
+                "height": 800,
+                "resizable": true,
+                "fullscreen": false,
+                "decorations": false,
+                "label": "main"
+            }
+        ],
+        "security": {
+            "csp": null,
+            "capabilities": [
+                "default"
+            ]
+        }
+    },
+    "plugins": {
+        "shell": {
+            "open": true
+        },
+        "fs": {
+            "scope": [
+                "$HOME/.openclaw/**"
+            ]
+        }
+    }
+}
