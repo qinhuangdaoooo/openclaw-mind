@@ -12,6 +12,7 @@ use services::agent_service::AgentService;
 use services::skill_service::SkillService;
 use services::ai_service::AiService;
 use services::clawhub_service::ClawHubService;
+use services::mind_service::MindService;
 
 fn main() {
     // Initialize services
@@ -20,6 +21,7 @@ fn main() {
     let skill_service = SkillService::new();
     let ai_service = AiService::new();
     let clawhub_service = ClawHubService::new();
+    let mind_service = MindService::new();
 
     tauri::Builder::default()
         .manage(config_service)
@@ -27,6 +29,7 @@ fn main() {
         .manage(skill_service)
         .manage(ai_service)
         .manage(clawhub_service)
+        .manage(mind_service)
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             // Window commands
@@ -70,6 +73,16 @@ fn main() {
             // ClawHub commands
             commands::clawhub::search_clawhub_skills,
             commands::clawhub::browse_clawhub_skills,
+            // Mind commands
+            commands::mind::list_rooms,
+            commands::mind::create_room,
+            commands::mind::list_messages,
+            commands::mind::append_message,
+            commands::mind::invoke_agent,
+            commands::mind::list_tasks,
+            commands::mind::create_task,
+            commands::mind::update_task_status,
+            commands::mind::update_room_agents,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

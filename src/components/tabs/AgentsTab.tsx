@@ -268,6 +268,28 @@ export default function AgentsTab() {
         setDeleteTarget({ id, workspace })
     }
 
+    const updateAgentModel = useCallback(
+        async (agentId: string, providerId: string) => {
+            try {
+                const config = await configApi.read()
+                if (!config.agents?.list) return
+                const list = config.agents.list
+                const idx = list.findIndex((a) => a.id === agentId)
+                if (idx === -1) return
+                if (!list[idx].model) list[idx] = { ...list[idx], model: { primary: undefined } }
+                list[idx] = {
+                    ...list[idx],
+                    model: { primary: providerId.trim() || undefined },
+                }
+                await configApi.write(config)
+                await loadAgents()
+            } catch (err) {
+                setError(String(err))
+            }
+        },
+        [loadAgents]
+    )
+
     return (
         <div className="flex-1 flex flex-col h-full">
             {/* Sub-navigation */}
@@ -320,6 +342,7 @@ export default function AgentsTab() {
                     handleCreateAgent={handleCreateAgent}
                     handleToggleExpand={handleToggleExpand}
                     handleDeleteAgent={handleDeleteAgent}
+                    updateAgentModel={updateAgentModel}
                     updateAgentFile={updateAgentFile}
                     setAgentTab={setAgentTab}
                     handleSaveAgent={handleSaveAgent}
@@ -419,6 +442,7 @@ interface AgentManageContentProps {
     handleCreateAgent: () => void
     handleToggleExpand: (id: string) => void
     handleDeleteAgent: (id: string, workspace: string) => void
+    updateAgentModel: (agentId: string, providerId: string) => void
     updateAgentFile: (id: string, field: keyof AgentFiles, value: string) => void
     setAgentTab: (id: string, tab: ActiveTab) => void
     handleSaveAgent: (id: string) => void
@@ -450,6 +474,7 @@ function AgentManageContent(props: AgentManageContentProps) {
         handleCreateAgent,
         handleToggleExpand,
         handleDeleteAgent,
+        updateAgentModel,
         updateAgentFile,
         setAgentTab,
         handleSaveAgent,
@@ -681,8 +706,10 @@ function AgentManageContent(props: AgentManageContentProps) {
                                         workspace={workspace}
                                         isExpanded={isExpanded}
                                         state={state}
+                                        providers={providers}
                                         onToggle={() => handleToggleExpand(agent.id)}
                                         onDelete={() => handleDeleteAgent(agent.id, workspace)}
+                                        onUpdateModel={(providerId) => updateAgentModel(agent.id, providerId)}
                                         onUpdateFile={(field, value) => updateAgentFile(agent.id, field, value)}
                                         onSetTab={(tab) => setAgentTab(agent.id, tab)}
                                         onSave={() => handleSaveAgent(agent.id)}
@@ -1369,8 +1396,10 @@ interface AgentCardProps {
     workspace: string
     isExpanded: boolean
     state?: AgentState
+    providers: Array<{ id: string; name: string; isDefault: boolean }>
     onToggle: () => void
     onDelete: () => void
+    onUpdateModel: (providerId: string) => void
     onUpdateFile: (field: keyof AgentFiles, value: string) => void
     onSetTab: (tab: ActiveTab) => void
     onSave: () => void
@@ -1382,8 +1411,10 @@ function AgentCard({
     workspace,
     isExpanded,
     state,
+    providers,
     onToggle,
     onDelete,
+    onUpdateModel,
     onUpdateFile,
     onSetTab,
     onSave,
@@ -1420,6 +1451,30 @@ function AgentCard({
                     <p className="text-xs text-gray-500 font-mono truncate mt-0.5">
                         工作区：{workspace}
                     </p>
+                    <p className="text-[10px] text-gray-600 mt-0.5">
+                        大模型：{agent.model?.primary
+                            ? (providers.find((p) => p.id === agent.model?.primary)?.name ?? agent.model?.primary)
+                            : '默认'}
+                    </p>
+                    {isExpanded && (
+                        <div className="mt-2 flex items-center gap-2">
+                            <span className="text-xs text-gray-500 shrink-0">大模型：</span>
+                            <select
+                                value={agent.model?.primary ?? ''}
+                                onChange={(e) => onUpdateModel(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-6 px-2 rounded bg-gray-700 border border-gray-600 text-gray-200 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-[120px]"
+                            >
+                                <option value="">使用默认</option>
+                                {providers.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.name} {p.isDefault ? '(默认)' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            <span className="text-[10px] text-gray-600">Mind 群聊回复时使用</span>
+                        </div>
+                    )}
                 </div>
 
                 <button
