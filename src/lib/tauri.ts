@@ -301,3 +301,69 @@ export const clawhubApi = {
     browse: (cursor?: string, sort?: string) =>
         invoke<ClawHubBrowseResult>('browse_clawhub_skills', { cursor, sort }),
 }
+
+// Mind 团队房间
+export interface Room {
+    id: string
+    title: string
+    created_at: number
+    agent_ids?: string[]
+}
+
+export interface Message {
+    id: string
+    room_id: string
+    sender_type: 'human' | 'agent' | 'system'
+    sender_id: string
+    content: string
+    created_at: number
+    status?: string
+}
+
+export interface MindTask {
+    id: string
+    room_id: string
+    title: string
+    description: string
+    assignees: string[]
+    status: 'todo' | 'in_progress' | 'done' | 'blocked'
+    created_at: number
+    updated_at: number
+}
+
+export const mindApi = {
+    listRooms: () => invoke<Room[]>('list_rooms'),
+    createRoom: (title: string) => invoke<Room>('create_room', { title }),
+    listMessages: (roomId: string) => invoke<Message[]>('list_messages', { roomId }),
+    appendMessage: (
+        roomId: string,
+        senderType: string,
+        senderId: string,
+        content: string
+    ) =>
+        invoke<Message>('append_message', {
+            roomId,
+            senderType,
+            senderId,
+            content,
+        }),
+    invokeAgent: (roomId: string, agentId: string) =>
+        invoke<Message>('invoke_agent', { roomId, agentId }),
+    listTasks: (roomId: string) => invoke<MindTask[]>('list_tasks', { roomId }),
+    createTask: (
+        roomId: string,
+        title: string,
+        description: string,
+        assignees: string[]
+    ) =>
+        invoke<MindTask>('create_task', {
+            roomId,
+            title,
+            description,
+            assignees,
+        }),
+    updateTaskStatus: (taskId: string, status: string) =>
+        invoke<MindTask>('update_task_status', { taskId, status }),
+    updateRoomAgents: (roomId: string, agentIds: string[]) =>
+        invoke<Room>('update_room_agents', { roomId, agentIds }),
+}

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import TitleBar from '@/components/TitleBar'
 import Sidebar from '@/components/Sidebar'
 import AgentsTab from '@/components/tabs/AgentsTab'
+import MindTab from '@/components/tabs/MindTab'
 import SkillsTab from '@/components/tabs/SkillsTab-v2'
 import ConfigTab from '@/components/tabs/ConfigTab-v2'
 import ConnectTab from '@/components/tabs/ConnectTab'
@@ -11,7 +12,7 @@ import ToolsTab from '@/components/tabs/ToolsTab'
 import SettingsTab from '@/components/tabs/SettingsTab'
 
 export default function Home() {
-    const [activeTab, setActiveTab] = useState('tools')
+    const [activeTab, setActiveTab] = useState('mind')
 
     // 监听导航事件
     useEffect(() => {
@@ -27,6 +28,8 @@ export default function Home() {
 
     const renderTab = () => {
         switch (activeTab) {
+            case 'mind':
+                return <MindTab />
             case 'tools':
                 return <ToolsTab />
             case 'connect':

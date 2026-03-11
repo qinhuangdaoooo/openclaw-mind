@@ -5,3 +5,4 @@ pub mod ai_service;
 pub mod ssh_service;
 pub mod env_tool_service;
 pub mod clawhub_service;
+pub mod mind_service;

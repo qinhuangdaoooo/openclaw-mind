@@ -6,6 +6,7 @@ interface SidebarProps {
 }
 
 const tabs = [
+    { id: 'mind', label: '团队房间', icon: '💬' },
     { id: 'tools', label: '环境配置', icon: '🔧' },
     { id: 'connect', label: '安装与连接', icon: '🔗' },
     { id: 'skills', label: '技能管理', icon: '⚡' },

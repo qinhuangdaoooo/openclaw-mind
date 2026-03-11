@@ -164,6 +164,63 @@ impl AiService {
         Ok(skills)
     }
 
+    /// 非流式对话补全（用于 Mind 房间 Agent 调用）
+    pub async fn chat_completion(
+        api_key: &str,
+        base_url: &str,
+        model: Option<&str>,
+        provider: &str,
+        messages: Vec<serde_json::Value>,
+    ) -> Result<String> {
+        let client = reqwest::Client::new();
+        let model = model
+            .map(|m| m.to_string())
+            .unwrap_or_else(|| match provider {
+                "deepseek" => "deepseek-chat".to_string(),
+                "kimi" => "moonshot-v1-8k".to_string(),
+                _ => "gpt-4".to_string(),
+            });
+
+        let body = json!({
+            "model": model,
+            "messages": messages,
+            "temperature": 0.7
+        });
+
+        let response = client
+            .post(format!("{}/chat/completions", base_url.trim_end_matches('/')))
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| AppError::Network(format!("AI API 请求失败: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            return Err(AppError::Network(format!(
+                "AI API 返回错误 {}: {}",
+                status, text
+            )));
+        }
+
+        let result: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| AppError::Network(format!("解析 AI 响应失败: {}", e)))?;
+
+        let content = result
+            .get("choices")
+            .and_then(|c| c.get(0))
+            .and_then(|c| c.get("message"))
+            .and_then(|m| m.get("content"))
+            .and_then(|c| c.as_str())
+            .ok_or_else(|| AppError::Network("AI 响应格式错误".to_string()))?;
+
+        Ok(content.to_string())
+    }
+
     /// 流式推荐技能（带缓存）
     pub async fn recommend_skills_stream(
         &self,

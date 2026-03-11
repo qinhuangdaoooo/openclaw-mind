@@ -6,3 +6,4 @@ pub mod env_tool;
 pub mod ssh;
 pub mod system;
 pub mod clawhub;
+pub mod mind;
