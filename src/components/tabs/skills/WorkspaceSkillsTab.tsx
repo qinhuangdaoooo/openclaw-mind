@@ -154,19 +154,20 @@ export default function WorkspaceSkillsTab() {
             const config = await configApi.read()
             const provider = Object.keys(config.models?.providers || {})[0] || 'openai'
             const providerConfig = config.models?.providers[provider]
+            const apiKey = providerConfig?.apiKey ?? providerConfig?.api_key
 
-            if (!providerConfig?.api_key) {
+            if (!apiKey) {
                 setError('请先在配置页面设置 API Key')
                 setIsStreaming(false)
                 return
             }
 
-            const baseUrl = providerConfig.base_url || providerConfig.api
+            const baseUrl = providerConfig?.baseUrl ?? providerConfig?.base_url ?? providerConfig?.api ?? ''
 
             // 启动流式推荐
             await skillApi.recommendStream(
                 aiQuery,
-                providerConfig.api_key,
+                apiKey,
                 provider,
                 baseUrl,
                 (chunk: StreamChunk) => {

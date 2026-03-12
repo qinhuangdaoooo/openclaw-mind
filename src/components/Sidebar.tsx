@@ -6,20 +6,21 @@ interface SidebarProps {
 }
 
 const tabs = [
-    { id: 'mind', label: '团队房间', icon: '💬' },
-    { id: 'tools', label: '环境配置', icon: '🔧' },
-    { id: 'connect', label: '安装与连接', icon: '🔗' },
-    { id: 'skills', label: '技能管理', icon: '⚡' },
+    { id: 'mind', label: '团队房间', icon: '🧠' },
+    { id: 'tools', label: '环境配置', icon: '🧰' },
+    { id: 'connect', label: '安装与连接', icon: '🔌' },
+    { id: 'chat-tools', label: '聊天工具管理', icon: '💬' },
+    { id: 'skills', label: '技能管理', icon: '🧩' },
     { id: 'agents', label: 'Agent 管理', icon: '🤖' },
     { id: 'config', label: '配置文件', icon: '⚙️' },
-    { id: 'settings', label: '设置', icon: '🔨' },
+    { id: 'settings', label: '设置', icon: '🔧' },
 ]
 
 export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     return (
         <div className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
             <div className="p-4 border-b border-gray-800">
-                <h2 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                <h2 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                     OpenClaw Mind
                 </h2>
                 <p className="text-xs text-gray-500 mt-1">v0.1.0</p>
@@ -47,7 +48,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                         <span>Tauri + Next.js</span>
                     </div>
-                    <div className="text-gray-600">Phase 3 开发中</div>
+                    <div className="text-gray-600">桌面管理台</div>
                 </div>
             </div>
         </div>

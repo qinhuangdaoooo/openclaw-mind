@@ -940,9 +940,28 @@ function BindingRow({ idx, binding, localAgents, onUpdate, onRemove }: BindingRo
         { value: 'whatsapp', label: 'WhatsApp' },
         { value: 'discord', label: 'Discord' },
         { value: 'slack', label: 'Slack' },
+        { value: 'feishu', label: 'Feishu' },
+        { value: 'qqbridge', label: 'QQ Bridge' },
         { value: 'lark', label: '飞书 (Lark)' },
         { value: 'wechat', label: '微信 (WeChat)' },
     ]
+
+    const PEER_ID_PLACEHOLDERS: Record<string, string> = {
+        telegram: 'chat / group id',
+        whatsapp: 'group / user id',
+        discord: 'guild / channel id',
+        slack: 'channel / user id',
+        feishu: 'chat_id / open_id',
+        lark: 'chat_id / open_id',
+        qqbridge: 'group_id / qq',
+        wechat: 'room / contact id',
+    }
+
+    const PEER_ID_HINTS: Record<string, string> = {
+        feishu: '可填写 chat_id、open_id，或留空匹配全部飞书会话',
+        lark: '兼容旧的 Lark 配置；建议新配置改用 feishu',
+        qqbridge: '可填写群号或 QQ 号；留空表示接收全部桥接消息',
+    }
 
     const PEER_KIND_OPTIONS = [
         { value: 'private', label: '私聊 (private)' },
@@ -952,6 +971,8 @@ function BindingRow({ idx, binding, localAgents, onUpdate, onRemove }: BindingRo
 
     const peerKind = binding.match.peer?.kind || 'group'
     const peerId = binding.match.peer?.id || ''
+    const peerIdPlaceholder = PEER_ID_PLACEHOLDERS[binding.match.channel] ?? 'peer id'
+    const peerIdHint = PEER_ID_HINTS[binding.match.channel]
 
     return (
         <div className="rounded-xl border border-gray-700 bg-gray-800 overflow-hidden">
@@ -1059,9 +1080,12 @@ function BindingRow({ idx, binding, localAgents, onUpdate, onRemove }: BindingRo
                                 peer: { ...binding.match.peer, kind: peerKind as any, id: e.target.value }
                             }
                         })}
-                        placeholder="群组 / 频道 ID"
+                        placeholder={peerIdPlaceholder}
                         className="w-full h-8 px-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
+                    {peerIdHint && (
+                        <p className="text-[11px] text-gray-500 leading-relaxed">{peerIdHint}</p>
+                    )}
                 </div>
             </div>
         </div>

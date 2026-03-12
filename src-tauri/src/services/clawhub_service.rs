@@ -42,14 +42,14 @@ impl ClawHubService {
     /// 搜索 ClawHub 技能
     pub async fn search(&self, query: &str, limit: usize) -> Result<Vec<Skill>> {
         println!("[ClawHub] Searching for: '{}', limit: {}", query, limit);
-        
+
         let url = format!(
             "{}/search?q={}&limit={}",
             self.api_base,
             urlencoding::encode(query),
             limit.min(50)
         );
-        
+
         println!("[ClawHub] Search URL: {}", url);
 
         // 重试逻辑
@@ -170,10 +170,17 @@ impl ClawHubService {
                     }
 
                     let body_text = response.text().await?;
-                    println!("[ClawHub] API response body: {}", &body_text[..body_text.len().min(500)]);
-                    
+                    println!(
+                        "[ClawHub] API response body: {}",
+                        &body_text[..body_text.len().min(500)]
+                    );
+
                     let result: ClawHubBrowseResult = serde_json::from_str(&body_text)?;
-                    println!("[ClawHub] Parsed result: items={}, next_cursor={:?}", result.items.len(), result.next_cursor);
+                    println!(
+                        "[ClawHub] Parsed result: items={}, next_cursor={:?}",
+                        result.items.len(),
+                        result.next_cursor
+                    );
                     return Ok(result);
                 }
                 Err(e) => {
@@ -189,4 +196,3 @@ impl ClawHubService {
         Err("Max retries exceeded".into())
     }
 }
-

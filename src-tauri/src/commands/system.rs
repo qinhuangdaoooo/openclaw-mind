@@ -4,7 +4,7 @@ use std::process::Command;
 #[tauri::command]
 pub async fn open_path_in_finder(path: String) -> Result<(), String> {
     let expanded_path = expand_path(&path);
-    
+
     #[cfg(target_os = "windows")]
     {
         Command::new("explorer")
@@ -12,7 +12,7 @@ pub async fn open_path_in_finder(path: String) -> Result<(), String> {
             .spawn()
             .map_err(|e| format!("无法打开文件管理器: {}", e))?;
     }
-    
+
     #[cfg(target_os = "macos")]
     {
         Command::new("open")
@@ -20,7 +20,7 @@ pub async fn open_path_in_finder(path: String) -> Result<(), String> {
             .spawn()
             .map_err(|e| format!("无法打开 Finder: {}", e))?;
     }
-    
+
     #[cfg(target_os = "linux")]
     {
         Command::new("xdg-open")
@@ -28,7 +28,7 @@ pub async fn open_path_in_finder(path: String) -> Result<(), String> {
             .spawn()
             .map_err(|e| format!("无法打开文件管理器: {}", e))?;
     }
-    
+
     Ok(())
 }
 

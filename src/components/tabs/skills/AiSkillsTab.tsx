@@ -40,6 +40,12 @@ export default function AiSkillsTab() {
         }
 
         const providers = config.models.providers
+        const getApiKey = (provider: any) => provider?.apiKey ?? provider?.api_key
+        const getBaseUrl = (provider: any) => provider?.baseUrl ?? provider?.base_url ?? provider?.api
+        const getModelId = (provider: any) => {
+            const model = provider?.models?.[0]
+            return typeof model === 'string' ? model : model?.id
+        }
 
         const normalizeBaseUrl = (url: string) => {
             const u = (url || '').trim().replace(/\/+$/, '')
@@ -51,49 +57,49 @@ export default function AiSkillsTab() {
         }
 
         // 1. 优先使用 Agents 默认模型指定的提供商
-        const defaultProviderId = config.agents?.defaults?.model?.primary
+        const defaultProviderId = config.agents?.defaults?.model?.primary?.split('/')[0]
         if (defaultProviderId) {
             const p = providers[defaultProviderId]
-            if (p?.api_key) {
+            if (getApiKey(p)) {
                 return {
-                    apiKey: p.api_key,
+                    apiKey: getApiKey(p),
                     provider: defaultProviderId,
-                    baseUrl: normalizeBaseUrl(p.base_url || p.api),
-                    model: p.models?.[0],
+                    baseUrl: normalizeBaseUrl(getBaseUrl(p)),
+                    model: getModelId(p),
                 }
             }
         }
 
         // 2. 兼容旧逻辑：优先 deepseek / kimi
         const deepseek = providers['deepseek']
-        if (deepseek?.api_key) {
+        if (getApiKey(deepseek)) {
             return {
-                apiKey: deepseek.api_key,
+                apiKey: getApiKey(deepseek),
                 provider: 'deepseek',
-                baseUrl: normalizeBaseUrl(deepseek.base_url || deepseek.api || 'https://api.deepseek.com'),
-                model: deepseek.models?.[0] || 'deepseek-chat',
+                baseUrl: normalizeBaseUrl(getBaseUrl(deepseek) || 'https://api.deepseek.com'),
+                model: getModelId(deepseek) || 'deepseek-chat',
             }
         }
 
         const kimi = providers['kimi']
-        if (kimi?.api_key) {
+        if (getApiKey(kimi)) {
             return {
-                apiKey: kimi.api_key,
+                apiKey: getApiKey(kimi),
                 provider: 'kimi',
-                baseUrl: normalizeBaseUrl(kimi.base_url || kimi.api || 'https://api.moonshot.cn/v1'),
-                model: kimi.models?.[0] || 'moonshot-v1-8k',
+                baseUrl: normalizeBaseUrl(getBaseUrl(kimi) || 'https://api.moonshot.cn/v1'),
+                model: getModelId(kimi) || 'moonshot-v1-8k',
             }
         }
 
         // 3. 否则选第一个有 api_key 的 provider
-        const fallbackEntry = Object.entries(providers).find(([, p]) => p.api_key)
+        const fallbackEntry = Object.entries(providers).find(([, p]) => getApiKey(p))
         if (fallbackEntry) {
             const [id, p] = fallbackEntry
             return {
-                apiKey: p.api_key!,
+                apiKey: getApiKey(p)!,
                 provider: id,
-                baseUrl: normalizeBaseUrl(p.base_url || p.api),
-                model: p.models?.[0],
+                baseUrl: normalizeBaseUrl(getBaseUrl(p)),
+                model: getModelId(p),
             }
         }
 

@@ -1,2 +1,5 @@
 [build]
 target = "x86_64-pc-windows-msvc"
+
+[target.x86_64-pc-windows-msvc]
+linker = "scripts\\rust-lld-link.cmd"

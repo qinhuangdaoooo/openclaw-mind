@@ -1,18 +1,18 @@
-// Prevents additional console window on Windows in release builds
+﻿// Prevents additional console window on Windows in release builds
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod error;
 mod models;
 mod services;
 mod utils;
-mod error;
 
-use services::config_service::ConfigService;
 use services::agent_service::AgentService;
-use services::skill_service::SkillService;
 use services::ai_service::AiService;
 use services::clawhub_service::ClawHubService;
+use services::config_service::ConfigService;
 use services::mind_service::MindService;
+use services::skill_service::SkillService;
 
 fn main() {
     // Initialize services
@@ -41,6 +41,8 @@ fn main() {
             commands::config::write_config,
             commands::config::validate_config_json,
             commands::config::reload_gateway,
+            commands::config::test_feishu_config,
+            commands::config::test_qq_bridge_config,
             commands::config::get_providers,
             commands::config::set_default_provider,
             // Agent commands
@@ -64,6 +66,7 @@ fn main() {
             // Env tool commands
             commands::env_tool::check_env_tool,
             commands::env_tool::install_env_tool,
+            commands::env_tool::uninstall_env_tool,
             // SSH commands
             commands::ssh::test_ssh_connection,
             commands::ssh::execute_ssh_command,
@@ -73,6 +76,8 @@ fn main() {
             // ClawHub commands
             commands::clawhub::search_clawhub_skills,
             commands::clawhub::browse_clawhub_skills,
+            // Channel commands
+            commands::channel::ingest_channel_message,
             // Mind commands
             commands::mind::list_rooms,
             commands::mind::create_room,

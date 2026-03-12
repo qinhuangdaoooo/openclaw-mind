@@ -4,7 +4,7 @@ import { FieldGroup } from './FieldGroup'
 import { FormSection } from './FormSection'
 
 interface CanvasSectionProps {
-    canvasHost: { enabled: boolean; port: number } | undefined
+    canvasHost: { enabled?: boolean; port?: number } | undefined
     setCanvasEnabled: (enabled: boolean) => void
     setCanvasPort: (port: number) => void
 }

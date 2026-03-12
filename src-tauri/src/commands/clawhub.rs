@@ -25,4 +25,3 @@ pub async fn browse_clawhub_skills(
         .await
         .map_err(|e| e.to_string())
 }
-

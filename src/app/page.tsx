@@ -1,28 +1,35 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import TitleBar from '@/components/TitleBar'
+import { useEffect, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
+import TitleBar from '@/components/TitleBar'
 import AgentsTab from '@/components/tabs/AgentsTab'
-import MindTab from '@/components/tabs/MindTab'
-import SkillsTab from '@/components/tabs/SkillsTab-v2'
+import ChatToolsTab from '@/components/tabs/ChatToolsTab'
 import ConfigTab from '@/components/tabs/ConfigTab-v2'
 import ConnectTab from '@/components/tabs/ConnectTab'
-import ToolsTab from '@/components/tabs/ToolsTab'
+import MindTab from '@/components/tabs/MindTab'
 import SettingsTab from '@/components/tabs/SettingsTab'
+import SkillsTab from '@/components/tabs/SkillsTab-v2'
+import ToolsTab from '@/components/tabs/ToolsTab'
 
 export default function Home() {
     const [activeTab, setActiveTab] = useState('mind')
 
-    // 监听导航事件
     useEffect(() => {
         const handleNavigateToConfig = () => {
             setActiveTab('config')
         }
 
+        const handleNavigateToMind = () => {
+            setActiveTab('mind')
+        }
+
         window.addEventListener('navigate-to-config', handleNavigateToConfig)
+        window.addEventListener('navigate-to-mind', handleNavigateToMind)
+
         return () => {
             window.removeEventListener('navigate-to-config', handleNavigateToConfig)
+            window.removeEventListener('navigate-to-mind', handleNavigateToMind)
         }
     }, [])
 
@@ -34,6 +41,8 @@ export default function Home() {
                 return <ToolsTab />
             case 'connect':
                 return <ConnectTab />
+            case 'chat-tools':
+                return <ChatToolsTab />
             case 'skills':
                 return <SkillsTab />
             case 'agents':
@@ -43,7 +52,7 @@ export default function Home() {
             case 'settings':
                 return <SettingsTab />
             default:
-                return <ToolsTab />
+                return <MindTab />
         }
     }
 
@@ -52,9 +61,7 @@ export default function Home() {
             <TitleBar />
             <div className="flex-1 flex overflow-hidden">
                 <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-                <main className="flex-1 overflow-y-auto">
-                    {renderTab()}
-                </main>
+                <main className="flex-1 overflow-y-auto">{renderTab()}</main>
             </div>
         </div>
     )

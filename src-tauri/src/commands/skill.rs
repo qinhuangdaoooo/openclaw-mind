@@ -35,9 +35,10 @@ pub async fn recommend_skills(
 
     let model_ref = model.as_deref();
 
-    let names: Vec<String> = AiService::recommend_skills(&query, &api_key, &provider, &base_url, model_ref)
-        .await
-        .map_err(|e| e.to_string())?;
+    let names: Vec<String> =
+        AiService::recommend_skills(&query, &api_key, &provider, &base_url, model_ref)
+            .await
+            .map_err(|e| e.to_string())?;
 
     let skills: Vec<Skill> = names
         .into_iter()
@@ -66,9 +67,11 @@ pub async fn recommend_skills_stream(
     // 在后台任务中运行流式推荐
     let ai_service = ai_service.inner().clone();
     tauri::async_runtime::spawn(async move {
-        let _ = ai_service.recommend_skills_stream(app, query, api_key, provider, base_url).await;
+        let _ = ai_service
+            .recommend_skills_stream(app, query, api_key, provider, base_url)
+            .await;
     });
-    
+
     Ok(())
 }
 
@@ -97,7 +100,10 @@ pub async fn install_skill_stream(
     tauri::async_runtime::spawn(async move {
         let _ = app.emit(
             "skill-install-log",
-            format!("开始安装技能 `{}` 到工作区 `{}`", skill_slug, workspace_path),
+            format!(
+                "开始安装技能 `{}` 到工作区 `{}`",
+                skill_slug, workspace_path
+            ),
         );
 
         match service.install(&workspace_path, &skill_slug).await {

@@ -1,9 +1,10 @@
-pub mod window;
-pub mod config;
+pub mod channel;
 pub mod agent;
-pub mod skill;
+pub mod clawhub;
+pub mod config;
 pub mod env_tool;
+pub mod mind;
+pub mod skill;
 pub mod ssh;
 pub mod system;
-pub mod clawhub;
-pub mod mind;
+pub mod window;

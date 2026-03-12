@@ -16,52 +16,55 @@ impl SkillService {
     pub fn new() -> Self {
         let home = dirs::home_dir().expect("无法获取用户目录");
         let skills_dir = home.join(".openclaw").join("skills");
-        
+
         Self { skills_dir }
     }
-    
+
     pub async fn list_local(&self) -> Result<Vec<Skill>> {
         if !self.skills_dir.exists() {
             return Ok(Vec::new());
         }
-        
+
         let mut skills = Vec::new();
         let mut entries = fs::read_dir(&self.skills_dir).await?;
-        
+
         while let Some(entry) = entries.next_entry().await? {
             if entry.file_type().await?.is_dir() {
                 let skill_name = entry.file_name().to_string_lossy().to_string();
-                
+
                 // 尝试读取 skill.json 获取详细信息
                 let skill_json = entry.path().join("skill.json");
                 let skill = if skill_json.exists() {
                     let content = fs::read_to_string(&skill_json).await?;
-                    serde_json::from_str(&content).unwrap_or_else(|_| {
-                        Skill::new_local(skill_name)
-                    })
+                    serde_json::from_str(&content).unwrap_or_else(|_| Skill::new_local(skill_name))
                 } else {
                     Skill::new_local(skill_name)
                 };
-                
+
                 skills.push(skill);
             }
         }
-        
+
         Ok(skills)
     }
-    
+
     pub async fn search_clawhub(&self, query: &str, limit: usize) -> Result<Vec<Skill>> {
         // TODO: 实现 ClawHub API 调用
         // 这里先返回空列表，后续实现
         Ok(Vec::new())
     }
-    
-    pub async fn recommend(&self, query: &str, api_key: &str, provider: &str) -> Result<Vec<Skill>> {
+
+    pub async fn recommend(
+        &self,
+        query: &str,
+        api_key: &str,
+        provider: &str,
+    ) -> Result<Vec<Skill>> {
         // TODO: 调用 AI Service 进行推荐
         // 这里先返回空列表，后续实现
         Ok(Vec::new())
     }
-    
+
     pub async fn install(&self, workspace_path: &str, skill_slug: &str) -> Result<()> {
         use urlencoding::encode;
 
@@ -76,7 +79,8 @@ impl SkillService {
         let skill_dir = skills_dir.join(skill_slug);
 
         // 准备临时目录 ~/.openclaw/.tmp
-        let home = dirs::home_dir().ok_or_else(|| AppError::Other("无法获取用户目录".to_string()))?;
+        let home =
+            dirs::home_dir().ok_or_else(|| AppError::Other("无法获取用户目录".to_string()))?;
         let tmp_dir = home.join(".openclaw").join(".tmp");
 
         fs::create_dir_all(&tmp_dir).await?;
@@ -219,7 +223,8 @@ impl SkillService {
             }
         } else {
             // Linux / 其他 *nix
-            let xdg = env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| home.join(".config").to_string_lossy().to_string());
+            let xdg = env::var("XDG_CONFIG_HOME")
+                .unwrap_or_else(|_| home.join(".config").to_string_lossy().to_string());
             let base = PathBuf::from(xdg);
             candidates.push(base.join("clawhub").join("config.json"));
             candidates.push(base.join("clawdhub").join("config.json"));
@@ -246,23 +251,23 @@ impl SkillService {
 
         None
     }
-    
+
     /// 列出指定工作区的技能
     pub async fn list_agent_skills(&self, workspace_path: &str) -> Result<Vec<Skill>> {
         let workspace = self.expand_path(workspace_path);
         let skills_dir = workspace.join("skills");
-        
+
         if !skills_dir.exists() {
             return Ok(Vec::new());
         }
-        
+
         let mut skills = Vec::new();
         let mut entries = fs::read_dir(&skills_dir).await?;
-        
+
         while let Some(entry) = entries.next_entry().await? {
             if entry.file_type().await?.is_dir() {
                 let skill_name = entry.file_name().to_string_lossy().to_string();
-                
+
                 // 尝试读取 SKILL.md 获取描述
                 let skill_md = entry.path().join("SKILL.md");
                 let description = if skill_md.exists() {
@@ -272,7 +277,7 @@ impl SkillService {
                 } else {
                     String::new()
                 };
-                
+
                 let skill = Skill {
                     name: skill_name,
                     description: Some(description),
@@ -281,14 +286,14 @@ impl SkillService {
                     version: None,
                     author: None,
                 };
-                
+
                 skills.push(skill);
             }
         }
-        
+
         Ok(skills)
     }
-    
+
     /// 展开路径（处理 ~ 等）
     fn expand_path(&self, path: &str) -> PathBuf {
         if path.starts_with("~/") || path == "~" {
@@ -302,7 +307,7 @@ impl SkillService {
             PathBuf::from(path)
         }
     }
-    
+
     /// 从 Markdown 内容中提取描述
     fn extract_description(&self, content: &str) -> String {
         for line in content.lines() {
@@ -319,39 +324,39 @@ impl SkillService {
         }
         String::new()
     }
-    
+
     /// 列出内置技能（npm 全局包中的技能）
     pub async fn list_builtin(&self) -> Result<Vec<Skill>> {
         // 尝试获取 npm 全局目录
         let output = std::process::Command::new("npm")
             .args(&["root", "-g"])
             .output();
-            
+
         if output.is_err() {
             return Ok(Vec::new());
         }
-        
+
         let npm_root = String::from_utf8_lossy(&output.unwrap().stdout)
             .trim()
             .to_string();
-            
+
         if npm_root.is_empty() {
             return Ok(Vec::new());
         }
-        
+
         let builtin_dir = PathBuf::from(npm_root).join("openclaw").join("skills");
-        
+
         if !builtin_dir.exists() {
             return Ok(Vec::new());
         }
-        
+
         let mut skills = Vec::new();
         let mut entries = fs::read_dir(&builtin_dir).await?;
-        
+
         while let Some(entry) = entries.next_entry().await? {
             if entry.file_type().await?.is_dir() {
                 let skill_name = entry.file_name().to_string_lossy().to_string();
-                
+
                 // 尝试读取 SKILL.md 获取描述
                 let skill_md = entry.path().join("SKILL.md");
                 let description = if skill_md.exists() {
@@ -360,7 +365,7 @@ impl SkillService {
                 } else {
                     String::new()
                 };
-                
+
                 let skill = Skill {
                     name: skill_name,
                     description: Some(description),
@@ -369,11 +374,11 @@ impl SkillService {
                     version: None,
                     author: None,
                 };
-                
+
                 skills.push(skill);
             }
         }
-        
+
         Ok(skills)
     }
 }

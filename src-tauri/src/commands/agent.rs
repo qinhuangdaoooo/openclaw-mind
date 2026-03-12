@@ -1,12 +1,10 @@
 use crate::models::agent::{Agent, AgentFiles};
 use crate::services::agent_service::AgentService;
-use tauri::State;
 use tauri::Emitter;
+use tauri::State;
 
 #[tauri::command]
-pub async fn list_agents(
-    agent_service: State<'_, AgentService>,
-) -> Result<Vec<Agent>, String> {
+pub async fn list_agents(agent_service: State<'_, AgentService>) -> Result<Vec<Agent>, String> {
     agent_service.list().await.map_err(|e| e.to_string())
 }
 
@@ -97,7 +95,7 @@ pub async fn generate_agent_config_ai(
     ai_service: State<'_, crate::services::ai_service::AiService>,
 ) -> Result<(), String> {
     let ai_service = ai_service.inner().clone();
-    
+
     tauri::async_runtime::spawn(async move {
         if let Err(e) = ai_service
             .generate_agent_config(app.clone(), description, api_key, provider, base_url, model)
@@ -106,6 +104,6 @@ pub async fn generate_agent_config_ai(
             let _ = app.emit("agent-config-error", e.to_string());
         }
     });
-    
+
     Ok(())
 }

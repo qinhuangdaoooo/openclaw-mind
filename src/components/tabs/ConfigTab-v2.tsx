@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { configApi, OpenclawConfig } from '@/lib/tauri'
+import { ChannelTestResult, configApi, OpenclawConfig } from '@/lib/tauri'
 import { FormSection } from '@/components/config/FormSection'
 import { GatewayFields } from '@/components/config/GatewayFields'
 import { ProviderCard } from '@/components/config/ProviderCard'
@@ -9,13 +9,18 @@ import { FieldGroup } from '@/components/config/FieldGroup'
 import { EnvVarsSection } from '@/components/config/EnvVarsSection'
 import { ValidationBanner, ValidationIssue } from '@/components/config/ValidationBanner'
 import { CanvasSection } from '@/components/config/CanvasSection'
+import { ChannelIngestTester } from '@/components/config/ChannelIngestTester'
 import { WhatsAppSection } from '@/components/config/WhatsAppSection'
+import { FeishuSection } from '@/components/config/FeishuSection'
+import { QqBridgeSection } from '@/components/config/QqBridgeSection'
 import { TagInput } from '@/components/config/TagInput'
 
 // Validation helper
 function getConfigIssues(config: OpenclawConfig): ValidationIssue[] {
     const issues: ValidationIssue[] = []
     const providers = config.models?.providers ?? {}
+    const feishu = config.channels?.feishu
+    const qqBridge = config.channels?.qqBridge
 
     if (Object.keys(providers).length === 0) {
         issues.push({ type: 'warning', key: 'no-providers', message: '未配置任何模型提供商' })
@@ -30,7 +35,11 @@ function getConfigIssues(config: OpenclawConfig): ValidationIssue[] {
             })
         }
 
-        if (!provider.api_key?.trim()) {
+        const apiKey = (provider.apiKey ?? provider.api_key ?? '').trim()
+        const baseUrl = (provider.baseUrl ?? provider.base_url ?? '').trim()
+        const api = provider.api?.trim() ?? ''
+
+        if (!apiKey) {
             issues.push({
                 type: 'warning',
                 key: `${name}:no-apikey`,
@@ -38,7 +47,7 @@ function getConfigIssues(config: OpenclawConfig): ValidationIssue[] {
             })
         }
 
-        if (!provider.base_url?.trim() && !provider.api?.trim()) {
+        if (!baseUrl && !(api.startsWith('http://') || api.startsWith('https://'))) {
             issues.push({
                 type: 'warning',
                 key: `${name}:no-baseurl`,
@@ -47,8 +56,45 @@ function getConfigIssues(config: OpenclawConfig): ValidationIssue[] {
         }
     }
 
+    if (feishu?.enabled) {
+        if (!feishu.appId?.trim()) {
+            issues.push({
+                type: 'warning',
+                key: 'feishu:no-appid',
+                message: '飞书已启用，但还没有填写 App ID',
+            })
+        }
+
+        if (!feishu.appSecret?.trim()) {
+            issues.push({
+                type: 'warning',
+                key: 'feishu:no-secret',
+                message: '飞书已启用，但还没有填写 App Secret',
+            })
+        }
+    }
+
+    if (qqBridge?.enabled) {
+        if (!qqBridge.endpoint?.trim()) {
+            issues.push({
+                type: 'warning',
+                key: 'qqbridge:no-endpoint',
+                message: 'QQ Bridge 已启用，但还没有填写桥接 endpoint',
+            })
+        } else if (!/^(https?:\/\/|wss?:\/\/)/i.test(qqBridge.endpoint)) {
+            issues.push({
+                type: 'error',
+                key: 'qqbridge:bad-endpoint',
+                message: 'QQ Bridge endpoint 需要以 http://、https://、ws:// 或 wss:// 开头',
+            })
+        }
+    }
+
     return issues
 }
+
+type FeishuChannelConfig = NonNullable<NonNullable<OpenclawConfig['channels']>['feishu']>
+type QqBridgeChannelConfig = NonNullable<NonNullable<OpenclawConfig['channels']>['qqBridge']>
 
 export default function ConfigTabV2() {
     const [config, setConfig] = useState<OpenclawConfig | null>(null)
@@ -57,6 +103,9 @@ export default function ConfigTabV2() {
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState<string | null>(null)
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+    const [testingChannel, setTestingChannel] = useState<'feishu' | 'qqBridge' | null>(null)
+    const [feishuTestResult, setFeishuTestResult] = useState<ChannelTestResult | null>(null)
+    const [qqBridgeTestResult, setQqBridgeTestResult] = useState<ChannelTestResult | null>(null)
 
     // UI state
     const [showPreview, setShowPreview] = useState(true)
@@ -131,6 +180,48 @@ export default function ConfigTabV2() {
         }
     }
 
+    const handleTestFeishu = async () => {
+        if (!config) return
+
+        setTestingChannel('feishu')
+        setFeishuTestResult(null)
+        setError(null)
+
+        try {
+            const result = await configApi.testFeishu(config)
+            setFeishuTestResult(result)
+        } catch (err) {
+            setFeishuTestResult({
+                success: false,
+                message: '飞书连接测试失败',
+                details: String(err),
+            })
+        } finally {
+            setTestingChannel(null)
+        }
+    }
+
+    const handleTestQqBridge = async () => {
+        if (!config) return
+
+        setTestingChannel('qqBridge')
+        setQqBridgeTestResult(null)
+        setError(null)
+
+        try {
+            const result = await configApi.testQqBridge(config)
+            setQqBridgeTestResult(result)
+        } catch (err) {
+            setQqBridgeTestResult({
+                success: false,
+                message: 'QQ Bridge 连接测试失败',
+                details: String(err),
+            })
+        } finally {
+            setTestingChannel(null)
+        }
+    }
+
     // Config update helpers
     const updateGateway = (gateway: NonNullable<OpenclawConfig['gateway']>) => {
         if (!config) return
@@ -179,8 +270,8 @@ export default function ConfigTabV2() {
                     ...providers,
                     [newProviderName]: {
                         api: '',
-                        base_url: '',
-                        api_key: ''
+                        baseUrl: '',
+                        apiKey: ''
                     }
                 }
             }
@@ -304,6 +395,43 @@ export default function ConfigTabV2() {
         })
     }
 
+    const updateFeishuChannel = (updates: Partial<FeishuChannelConfig>) => {
+        if (!config) return
+        setConfig({
+            ...config,
+            channels: {
+                ...config.channels,
+                feishu: {
+                    enabled: config.channels?.feishu?.enabled ?? false,
+                    groupPolicy: config.channels?.feishu?.groupPolicy ?? 'open',
+                    allowChats: config.channels?.feishu?.allowChats ?? [],
+                    requireMention: config.channels?.feishu?.requireMention ?? true,
+                    ...config.channels?.feishu,
+                    ...updates,
+                },
+            },
+        })
+    }
+
+    const updateQqBridgeChannel = (updates: Partial<QqBridgeChannelConfig>) => {
+        if (!config) return
+        setConfig({
+            ...config,
+            channels: {
+                ...config.channels,
+                qqBridge: {
+                    enabled: config.channels?.qqBridge?.enabled ?? false,
+                    mode: config.channels?.qqBridge?.mode ?? 'http',
+                    groupPolicy: config.channels?.qqBridge?.groupPolicy ?? 'open',
+                    allowGroups: config.channels?.qqBridge?.allowGroups ?? [],
+                    requireMention: config.channels?.qqBridge?.requireMention ?? true,
+                    ...config.channels?.qqBridge,
+                    ...updates,
+                },
+            },
+        })
+    }
+
     const setMentionPatterns = (patterns: string[]) => {
         if (!config) return
         setConfig({
@@ -377,7 +505,7 @@ export default function ConfigTabV2() {
     const canSave = !loading && isDirty && saveStatus !== 'saving' && !!config && !hasErrors
 
     const providerEntries = Object.entries(config?.models?.providers || {})
-    const defaultProviderId = config?.agents?.defaults?.model?.primary
+    const defaultProviderId = config?.agents?.defaults?.model?.primary?.split('/')?.[0]
 
     if (loading && !config) {
         return (
@@ -568,6 +696,46 @@ export default function ConfigTabV2() {
                         setWaGroupPolicy={setWaGroupPolicy}
                         setWaAllowFrom={setWaAllowFrom}
                         setWaRequireMention={setWaRequireMention}
+                    />
+
+                    <FeishuSection
+                        value={config?.channels?.feishu}
+                        onChange={updateFeishuChannel}
+                        onTest={handleTestFeishu}
+                        testing={testingChannel === 'feishu'}
+                        testResult={feishuTestResult}
+                    />
+
+                    <ChannelIngestTester
+                        config={config}
+                        channel="feishu"
+                        heading="测试 Feishu 消息导入 Mind"
+                        description="模拟一条飞书消息进入 Mind，验证当前编辑中的会话参数和 bindings 是否能正确路由。"
+                        peerIdLabel="会话 ID"
+                        peerIdPlaceholder="chat_v2_xxx / ou_xxx"
+                        senderIdPlaceholder="ou_xxx"
+                        defaultPeerKind="group"
+                        defaultPeerId={config?.channels?.feishu?.defaultChatId ?? config?.channels?.feishu?.allowChats?.[0]}
+                    />
+
+                    <QqBridgeSection
+                        value={config?.channels?.qqBridge}
+                        onChange={updateQqBridgeChannel}
+                        onTest={handleTestQqBridge}
+                        testing={testingChannel === 'qqBridge'}
+                        testResult={qqBridgeTestResult}
+                    />
+
+                    <ChannelIngestTester
+                        config={config}
+                        channel="qqbridge"
+                        heading="测试 QQ Bridge 消息导入 Mind"
+                        description="模拟桥接层送入一条 QQ 消息，确认群号/QQ 号匹配与 Agent 绑定是否生效。"
+                        peerIdLabel="群号 / QQ 号"
+                        peerIdPlaceholder="123456789"
+                        senderIdPlaceholder="发送者 QQ 号"
+                        defaultPeerKind="group"
+                        defaultPeerId={config?.channels?.qqBridge?.allowGroups?.[0]}
                     />
 
                     {/* Messages Section */}

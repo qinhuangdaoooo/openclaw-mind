@@ -1,17 +1,36 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 
-// 窗口控制
+// 缁愭褰涢幒褍鍩?
 export const windowApi = {
     minimize: () => invoke('minimize_window'),
     maximize: () => invoke('maximize_window'),
     close: () => invoke('close_window'),
 }
 
-// 配置管理
+// 闁板秶鐤嗙粻锛勬倞
+export type ProviderModel =
+    | string
+    | {
+        id: string
+        name?: string
+        api?: string
+        reasoning?: boolean
+        input?: string[]
+        contextWindow?: number
+        maxTokens?: number
+        [key: string]: any
+    }
+
 export interface OpenclawConfig {
     meta?: Record<string, any>
     env?: Record<string, string>
+    [key: string]: any
+    canvasHost?: {
+        enabled?: boolean
+        port?: number
+        [key: string]: any
+    }
     gateway?: {
         mode: string
         port: number
@@ -19,23 +38,31 @@ export interface OpenclawConfig {
             mode: string
             token?: string
             password?: string
+            [key: string]: any
         }
+        [key: string]: any
     }
     models?: {
         mode: string
         providers: Record<string, {
             api: string
+            apiKey?: string
             api_key?: string
+            baseUrl?: string
             base_url?: string
-            models?: string[]
+            models?: ProviderModel[]
+            [key: string]: any
         }>
+        [key: string]: any
     }
     agents?: {
         defaults?: {
             workspace?: string
             model?: {
                 primary?: string
+                [key: string]: any
             }
+            [key: string]: any
         }
         list?: Array<{
             id: string
@@ -43,8 +70,11 @@ export interface OpenclawConfig {
             workspace?: string
             model?: {
                 primary?: string
+                [key: string]: any
             }
+            [key: string]: any
         }>
+        [key: string]: any
     }
     bindings?: Array<{
         agentId: string
@@ -53,14 +83,61 @@ export interface OpenclawConfig {
             peer?: {
                 kind: 'private' | 'group' | 'channel'
                 id: string
+                [key: string]: any
             }
+            [key: string]: any
         }
+        [key: string]: any
     }>
     tools?: {
         agentToAgent?: {
             enabled: boolean
             allow: string[]
+            [key: string]: any
         }
+        [key: string]: any
+    }
+    channels?: {
+        whatsapp?: {
+            groupPolicy?: 'open' | 'allowlist'
+            allowFrom?: string[]
+            groups?: Record<string, {
+                requireMention?: boolean
+                [key: string]: any
+            }>
+            [key: string]: any
+        }
+        feishu?: {
+            enabled?: boolean
+            appId?: string
+            appSecret?: string
+            verificationToken?: string
+            encryptKey?: string
+            defaultChatId?: string
+            groupPolicy?: 'open' | 'allowlist'
+            allowChats?: string[]
+            requireMention?: boolean
+            [key: string]: any
+        }
+        qqBridge?: {
+            enabled?: boolean
+            mode?: 'http' | 'ws'
+            endpoint?: string
+            accessToken?: string
+            selfId?: string
+            groupPolicy?: 'open' | 'allowlist'
+            allowGroups?: string[]
+            requireMention?: boolean
+            [key: string]: any
+        }
+        [key: string]: any
+    }
+    messages?: {
+        groupChat?: {
+            mentionPatterns?: string[]
+            [key: string]: any
+        }
+        [key: string]: any
     }
 }
 
@@ -72,6 +149,18 @@ export interface ValidationError {
 export interface ValidationResult {
     valid: boolean
     errors: ValidationError[]
+}
+
+export interface ChannelTestResult {
+    success: boolean
+    message: string
+    details?: string
+}
+
+export interface ChannelIngestResult {
+    room: Room
+    message: Message
+    matched_agent_id?: string
 }
 
 export interface ProviderInfo {
@@ -87,11 +176,33 @@ export const configApi = {
     write: (config: OpenclawConfig) => invoke('write_config', { config }),
     validate: (jsonStr: string) => invoke<ValidationResult>('validate_config_json', { jsonStr }),
     reloadGateway: () => invoke<string>('reload_gateway'),
+    testFeishu: (config: OpenclawConfig) =>
+        invoke<ChannelTestResult>('test_feishu_config', { config }),
+    testQqBridge: (config: OpenclawConfig) =>
+        invoke<ChannelTestResult>('test_qq_bridge_config', { config }),
+    ingestChannelMessage: (
+        config: OpenclawConfig,
+        channel: string,
+        peerKind: string,
+        peerId: string,
+        title: string | undefined,
+        senderId: string,
+        content: string
+    ) =>
+        invoke<ChannelIngestResult>('ingest_channel_message', {
+            config,
+            channel,
+            peerKind,
+            peerId,
+            title,
+            senderId,
+            content,
+        }),
     getProviders: () => invoke<ProviderInfo[]>('get_providers'),
     setDefaultProvider: (providerId: string) => invoke('set_default_provider', { providerId }),
 }
 
-// Agent 管理
+// Agent 缁狅紕鎮?
 export interface Agent {
     id: string
     name?: string
@@ -160,7 +271,7 @@ export const agentApi = {
     },
 }
 
-// 技能管理
+// 閹垛偓閼崇晫顓搁悶?
 export interface Skill {
     name: string
     description?: string
@@ -188,12 +299,12 @@ export const skillApi = {
         baseUrl: string,
         onChunk: (chunk: StreamChunk) => void
     ) => {
-        // 监听流式事件
+        // 閻╂垵鎯夊ù浣哥础娴滃娆?
         const unlisten = listen<StreamChunk>('ai-stream', (event) => {
             onChunk(event.payload)
         })
 
-        // 调用流式推荐命令
+        // 鐠嬪啰鏁ゅù浣哥础閹恒劏宕橀崨鎴掓姢
         invoke('recommend_skills_stream', {
             query,
             apiKey,
@@ -231,7 +342,7 @@ export const skillApi = {
     listBuiltin: () => invoke<Skill[]>('list_builtin_skills'),
 }
 
-// 环境工具
+// 閻滎垰顣ㄥ銉ュ徔
 export interface EnvToolCheckResult {
     found: boolean
     version?: string
@@ -241,13 +352,14 @@ export const envToolApi = {
     check: (tool: string) =>
         invoke<EnvToolCheckResult>('check_env_tool', { tool }),
     install: (tool: string) => invoke('install_env_tool', { tool }),
+    uninstall: (tool: string) => invoke('uninstall_env_tool', { tool }),
     onInstallLog: (callback: (log: string) => void) =>
         listen<string>('install-log', (event) => callback(event.payload)),
     onInstallProgress: (callback: (progress: number) => void) =>
         listen<number>('install-progress', (event) => callback(event.payload)),
 }
 
-// SSH 连接
+// SSH 鏉╃偞甯?
 export interface SshConfig {
     host: string
     port: number
@@ -275,7 +387,7 @@ export const sshApi = {
         invoke('upload_ssh_file', { config, localPath, remotePath }),
 }
 
-// 系统 API
+// 缁崵绮?API
 export const systemApi = {
     openPathInFinder: (path: string) =>
         invoke('open_path_in_finder', { path }),
@@ -302,12 +414,15 @@ export const clawhubApi = {
         invoke<ClawHubBrowseResult>('browse_clawhub_skills', { cursor, sort }),
 }
 
-// Mind 团队房间
+// Mind 閸ャ垽妲﹂幋鍧楁？
 export interface Room {
     id: string
     title: string
     created_at: number
     agent_ids?: string[]
+    channel?: string
+    peer_id?: string
+    external_key?: string
 }
 
 export interface Message {

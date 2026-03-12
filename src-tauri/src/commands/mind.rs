@@ -54,7 +54,10 @@ pub async fn create_room(
     title: String,
     mind_service: State<'_, MindService>,
 ) -> Result<Room, String> {
-    mind_service.create_room(title).await.map_err(|e| e.to_string())
+    mind_service
+        .create_room(title)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -62,7 +65,10 @@ pub async fn list_messages(
     room_id: String,
     mind_service: State<'_, MindService>,
 ) -> Result<Vec<Message>, String> {
-    mind_service.list_messages(&room_id).await.map_err(|e| e.to_string())
+    mind_service
+        .list_messages(&room_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -84,7 +90,10 @@ pub async fn list_tasks(
     room_id: String,
     mind_service: State<'_, MindService>,
 ) -> Result<Vec<Task>, String> {
-    mind_service.list_tasks(&room_id).await.map_err(|e| e.to_string())
+    mind_service
+        .list_tasks(&room_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -209,26 +218,16 @@ pub async fn invoke_agent(
         .models
         .as_ref()
         .and_then(|v| v.first())
-        .map(|s| s.as_str());
+        .map(|model| model.model_id());
 
-    let agent_response = AiService::chat_completion(
-        api_key,
-        &base_url,
-        model,
-        &provider_id,
-        messages,
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+    let agent_response =
+        AiService::chat_completion(api_key, &base_url, model, &provider_id, messages)
+            .await
+            .map_err(|e| e.to_string())?;
 
     // 追加 Agent 回复到房间
     let msg = mind_service
-        .append_message(
-            room_id,
-            SenderType::Agent,
-            agent_id.clone(),
-            agent_response,
-        )
+        .append_message(room_id, SenderType::Agent, agent_id.clone(), agent_response)
         .await
         .map_err(|e| e.to_string())?;
 

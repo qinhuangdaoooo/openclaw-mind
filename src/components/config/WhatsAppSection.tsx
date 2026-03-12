@@ -53,7 +53,7 @@ export function WhatsAppSection({
                     <div>
                         <p className="text-sm font-medium text-white">群组消息需要 @ 提及</p>
                         <p className="text-xs text-gray-500 mt-0.5">
-                            groups["*"].requireMention — 群聊须 @openclaw 才触发智能体
+                            groups[&quot;*&quot;].requireMention — 群聊须 @openclaw 才触发智能体
                         </p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
