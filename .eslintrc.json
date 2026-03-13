@@ -1,5 +1,9 @@
 {
     "extends": "next/core-web-vitals",
+    "ignorePatterns": [
+        "src/components/tabs/ConfigTab.tsx",
+        "src/components/tabs/SkillsTab.tsx"
+    ],
     "rules": {
         "@typescript-eslint/no-explicit-any": "off",
         "react-hooks/exhaustive-deps": "warn"

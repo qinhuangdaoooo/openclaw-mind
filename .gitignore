@@ -39,4 +39,7 @@ next-env.d.ts
 # Rust
 /target
 Cargo.lock
+<<<<<<< HEAD
 .codex-logs/
+=======
+>>>>>>> origin/master
