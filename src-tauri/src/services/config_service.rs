@@ -102,24 +102,17 @@ impl ConfigService {
         
         // 验证 Gateway 配置
         if let Some(gateway) = &config.gateway {
-            if gateway.mode.is_empty() {
+            if gateway.mode.as_deref().is_some_and(|mode| mode.trim().is_empty()) {
                 errors.push(ValidationError {
                     field: "gateway.mode".to_string(),
                     message: "Gateway 模式不能为空".to_string(),
                 });
             }
             
-            if gateway.port == 0 {
+            if gateway.port == Some(0) {
                 errors.push(ValidationError {
                     field: "gateway.port".to_string(),
                     message: "Gateway 端口不能为 0".to_string(),
-                });
-            }
-            
-            if gateway.port > 65535 {
-                errors.push(ValidationError {
-                    field: "gateway.port".to_string(),
-                    message: "Gateway 端口必须在 1-65535 之间".to_string(),
                 });
             }
         }
@@ -127,18 +120,26 @@ impl ConfigService {
         // 验证 Models 配置
         if let Some(models) = &config.models {
             for (name, provider) in &models.providers {
-                if provider.api.is_empty() {
+                let has_api = !provider.api.trim().is_empty();
+                let has_base_url = provider
+                    .base_url_value()
+                    .is_some_and(|base_url| !base_url.trim().is_empty());
+
+                if !has_api && !has_base_url {
                     errors.push(ValidationError {
-                        field: format!("models.providers.{}.api", name),
-                        message: "Provider API 不能为空".to_string(),
+                        field: format!("models.providers.{}", name),
+                        message: "Provider 至少需要配置 api 或 baseUrl".to_string(),
                     });
                 }
-                
-                // 验证 URL 格式
-                if !provider.api.starts_with("http://") && !provider.api.starts_with("https://") {
+
+                if provider
+                    .models
+                    .as_ref()
+                    .is_some_and(|entries| entries.iter().all(|entry| entry.model_id().is_none()))
+                {
                     errors.push(ValidationError {
-                        field: format!("models.providers.{}.api", name),
-                        message: "API 地址必须以 http:// 或 https:// 开头".to_string(),
+                        field: format!("models.providers.{}.models", name),
+                        message: "Provider 模型列表不能为空项".to_string(),
                     });
                 }
             }

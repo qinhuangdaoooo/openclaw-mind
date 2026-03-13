@@ -8,6 +8,7 @@ import MindTab from '@/components/tabs/MindTab'
 import SkillsTab from '@/components/tabs/SkillsTab-v2'
 import ConfigTab from '@/components/tabs/ConfigTab-v2'
 import ConnectTab from '@/components/tabs/ConnectTab'
+import ChatToolsTab from '@/components/tabs/ChatToolsTab'
 import ToolsTab from '@/components/tabs/ToolsTab'
 import SettingsTab from '@/components/tabs/SettingsTab'
 
@@ -34,6 +35,8 @@ export default function Home() {
                 return <ToolsTab />
             case 'connect':
                 return <ConnectTab />
+            case 'chat-tools':
+                return <ChatToolsTab />
             case 'skills':
                 return <SkillsTab />
             case 'agents':

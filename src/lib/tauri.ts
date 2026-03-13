@@ -9,33 +9,57 @@ export const windowApi = {
 }
 
 // 配置管理
+export interface ProviderModel {
+    id?: string
+    name?: string
+    api?: string
+    reasoning?: boolean
+    input?: string[]
+    contextWindow?: number
+    maxTokens?: number
+    [key: string]: any
+}
+
+export type ProviderModelEntry = string | ProviderModel
+
+export interface ProviderConfig {
+    api: string
+    apiKey?: string
+    api_key?: string
+    baseUrl?: string
+    base_url?: string
+    models?: ProviderModelEntry[]
+    [key: string]: any
+}
+
 export interface OpenclawConfig {
     meta?: Record<string, any>
     env?: Record<string, string>
     gateway?: {
-        mode: string
-        port: number
+        mode?: string
+        port?: number
         auth?: {
-            mode: string
+            mode?: string
             token?: string
             password?: string
+            [key: string]: any
         }
+        [key: string]: any
     }
     models?: {
-        mode: string
-        providers: Record<string, {
-            api: string
-            api_key?: string
-            base_url?: string
-            models?: string[]
-        }>
+        mode?: string
+        providers: Record<string, ProviderConfig>
+        [key: string]: any
     }
     agents?: {
         defaults?: {
             workspace?: string
             model?: {
                 primary?: string
+                fallbacks?: string[]
+                [key: string]: any
             }
+            [key: string]: any
         }
         list?: Array<{
             id: string
@@ -43,25 +67,85 @@ export interface OpenclawConfig {
             workspace?: string
             model?: {
                 primary?: string
+                fallbacks?: string[]
+                [key: string]: any
             }
+            [key: string]: any
         }>
+        [key: string]: any
     }
     bindings?: Array<{
         agentId: string
         match: {
             channel: string
             peer?: {
-                kind: 'private' | 'group' | 'channel'
+                kind: 'private' | 'group' | 'channel' | string
                 id: string
             }
+            [key: string]: any
         }
+        [key: string]: any
     }>
+    channels?: {
+        feishu?: Record<string, any>
+        qqBridge?: Record<string, any>
+        whatsapp?: {
+            groupPolicy?: 'open' | 'allowlist' | string
+            allowFrom?: string[]
+            groups?: Record<string, { requireMention?: boolean; [key: string]: any }>
+            [key: string]: any
+        }
+        [key: string]: any
+    }
+    canvasHost?: {
+        enabled?: boolean
+        port?: number
+        [key: string]: any
+    }
+    messages?: {
+        groupChat?: {
+            mentionPatterns?: string[]
+            [key: string]: any
+        }
+        [key: string]: any
+    }
     tools?: {
         agentToAgent?: {
-            enabled: boolean
-            allow: string[]
+            enabled?: boolean
+            allow?: string[]
+            [key: string]: any
         }
+        [key: string]: any
     }
+    [key: string]: any
+}
+
+export function getProviderApiKey(provider?: ProviderConfig | null): string | undefined {
+    return provider?.apiKey ?? provider?.api_key
+}
+
+export function getProviderBaseUrl(provider?: ProviderConfig | null): string | undefined {
+    return provider?.baseUrl ?? provider?.base_url ?? provider?.api
+}
+
+export function getProviderModelId(model?: ProviderModelEntry | null): string | undefined {
+    if (!model) return undefined
+    return typeof model === 'string' ? model : model.id ?? model.name
+}
+
+export function getProviderModelLabel(model?: ProviderModelEntry | null): string {
+    if (!model) return ''
+    return typeof model === 'string' ? model : model.name ?? model.id ?? ''
+}
+
+export function getDefaultProviderId(config?: OpenclawConfig | null): string | undefined {
+    const primary = config?.agents?.defaults?.model?.primary
+    return primary?.split('/')[0]
+}
+
+export function buildProviderPrimary(providerId: string, provider?: ProviderConfig | null): string {
+    const firstModelId = provider?.models?.map((item) => getProviderModelId(item)).find(Boolean)
+    return firstModelId ? `${providerId}/${firstModelId}` : providerId
 }
 
 export interface ValidationError {
@@ -241,6 +325,7 @@ export const envToolApi = {
     check: (tool: string) =>
         invoke<EnvToolCheckResult>('check_env_tool', { tool }),
     install: (tool: string) => invoke('install_env_tool', { tool }),
+    uninstall: (tool: string) => invoke('uninstall_env_tool', { tool }),
     onInstallLog: (callback: (log: string) => void) =>
         listen<string>('install-log', (event) => callback(event.payload)),
     onInstallProgress: (callback: (progress: number) => void) =>

@@ -1,7 +1,17 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { skillApi, Skill, StreamChunk, configApi, agentApi, Agent, systemApi } from '@/lib/tauri'
+import {
+    skillApi,
+    Skill,
+    StreamChunk,
+    configApi,
+    agentApi,
+    Agent,
+    getProviderApiKey,
+    getProviderBaseUrl,
+    systemApi,
+} from '@/lib/tauri'
 
 // Types
 interface AgentSource {
@@ -155,18 +165,19 @@ export default function WorkspaceSkillsTab() {
             const provider = Object.keys(config.models?.providers || {})[0] || 'openai'
             const providerConfig = config.models?.providers[provider]
 
-            if (!providerConfig?.api_key) {
+            const apiKey = getProviderApiKey(providerConfig)
+            if (!apiKey) {
                 setError('请先在配置页面设置 API Key')
                 setIsStreaming(false)
                 return
             }
 
-            const baseUrl = providerConfig.base_url || providerConfig.api
+            const baseUrl = getProviderBaseUrl(providerConfig) || ''
 
             // 启动流式推荐
             await skillApi.recommendStream(
                 aiQuery,
-                providerConfig.api_key,
+                apiKey,
                 provider,
                 baseUrl,
                 (chunk: StreamChunk) => {

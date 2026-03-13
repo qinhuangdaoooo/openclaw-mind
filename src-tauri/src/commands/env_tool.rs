@@ -1,5 +1,5 @@
 use crate::services::env_tool_service::{EnvToolCheckResult, EnvToolService, ToolId};
-use tauri::{AppHandle, State};
+use tauri::AppHandle;
 
 #[tauri::command]
 pub async fn check_env_tool(tool: String) -> Result<EnvToolCheckResult, String> {
@@ -13,6 +13,14 @@ pub async fn check_env_tool(tool: String) -> Result<EnvToolCheckResult, String> 
 pub async fn install_env_tool(tool: String, app: AppHandle) -> Result<(), String> {
     let tool_id = ToolId::from_str(&tool).map_err(|e| e.to_string())?;
     EnvToolService::install(tool_id, app)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn uninstall_env_tool(tool: String, app: AppHandle) -> Result<(), String> {
+    let tool_id = ToolId::from_str(&tool).map_err(|e| e.to_string())?;
+    EnvToolService::uninstall(tool_id, app)
         .await
         .map_err(|e| e.to_string())
 }

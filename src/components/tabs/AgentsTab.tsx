@@ -1074,7 +1074,7 @@ interface AgentBinding {
     match: {
         channel: string
         peer?: {
-            kind: 'private' | 'group' | 'channel'
+            kind: 'private' | 'group' | 'channel' | string
             id: string
         }
     }

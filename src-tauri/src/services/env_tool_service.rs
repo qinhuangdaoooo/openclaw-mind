@@ -104,6 +104,23 @@ impl EnvToolService {
             ToolId::Openclaw => Self::install_openclaw(app).await,
         }
     }
+
+    pub async fn uninstall(tool: ToolId, app: AppHandle) -> Result<()> {
+        Self::emit_log(&app, &format!("开始卸载 {}...", tool.command_name()));
+        Self::emit_progress(&app, 0);
+
+        match tool {
+            ToolId::Node => Self::winget_uninstall("OpenJS.NodeJS", "Node.js", app).await,
+            ToolId::Python => Self::winget_uninstall("Python.Python.3.12", "Python", app).await,
+            ToolId::Docker => {
+                Self::emit_log(&app, "Docker Desktop 请在系统应用列表中手动卸载");
+                Self::emit_progress(&app, 100);
+                Err(AppError::Other("Docker 需要手动卸载".to_string()))
+            }
+            ToolId::Git => Self::winget_uninstall("Git.Git", "Git", app).await,
+            ToolId::Openclaw => Self::uninstall_openclaw(app).await,
+        }
+    }
     
     fn emit_log(app: &AppHandle, message: &str) {
         let _ = app.emit("install-log", message.to_string());
@@ -266,6 +283,84 @@ impl EnvToolService {
         } else {
             Self::emit_log(&app, "npm 不可用，请先安装 Node.js");
             Err(AppError::Other("npm 不可用，请先安装 Node.js".to_string()))
+        }
+    }
+
+    async fn winget_uninstall(package_id: &str, label: &str, app: AppHandle) -> Result<()> {
+        Self::emit_log(&app, "检测 winget 是否可用...");
+        Self::emit_progress(&app, 10);
+
+        let winget_check = Command::new("winget")
+            .arg("--version")
+            .output()
+            .await;
+
+        if winget_check.is_err() {
+            Self::emit_log(&app, "winget 不可用，请手动卸载");
+            return Err(AppError::Other("winget 不可用，请手动卸载".to_string()));
+        }
+
+        Self::emit_log(&app, &format!("使用 winget 卸载 {}...", label));
+        Self::emit_progress(&app, 40);
+
+        let output = Command::new("winget")
+            .args([
+                "uninstall",
+                "--id",
+                package_id,
+                "--accept-package-agreements",
+                "--accept-source-agreements",
+            ])
+            .output()
+            .await
+            .map_err(|e| AppError::Other(format!("卸载失败: {}", e)))?;
+
+        Self::emit_progress(&app, 90);
+
+        if output.status.success() {
+            Self::emit_log(&app, &format!("{} 卸载成功！", label));
+            Self::emit_progress(&app, 100);
+            Ok(())
+        } else {
+            let error = String::from_utf8_lossy(&output.stderr);
+            Self::emit_log(&app, &format!("卸载失败: {}", error));
+            Err(AppError::Other(format!("卸载失败: {}", error)))
+        }
+    }
+
+    async fn uninstall_openclaw(app: AppHandle) -> Result<()> {
+        Self::emit_log(&app, "检测 npm 是否可用...");
+        Self::emit_progress(&app, 10);
+
+        let npm_check = Command::new("npm")
+            .arg("--version")
+            .output()
+            .await;
+
+        if npm_check.is_err() {
+            Self::emit_log(&app, "npm 不可用，请手动卸载 OpenClaw CLI");
+            return Err(AppError::Other("npm 不可用，请手动卸载".to_string()));
+        }
+
+        Self::emit_log(&app, "使用 npm 卸载 OpenClaw CLI...");
+        Self::emit_progress(&app, 40);
+
+        let output = Command::new("npm")
+            .args(["uninstall", "-g", "@openclaw/cli"])
+            .output()
+            .await
+            .map_err(|e| AppError::Other(format!("卸载失败: {}", e)))?;
+
+        Self::emit_progress(&app, 90);
+
+        if output.status.success() {
+            Self::emit_log(&app, "OpenClaw CLI 卸载成功！");
+            Self::emit_progress(&app, 100);
+            Ok(())
+        } else {
+            let error = String::from_utf8_lossy(&output.stderr);
+            Self::emit_log(&app, &format!("卸载失败: {}", error));
+            Err(AppError::Other(format!("卸载失败: {}", error)))
         }
     }
 }

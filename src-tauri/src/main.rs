@@ -64,6 +64,7 @@ fn main() {
             // Env tool commands
             commands::env_tool::check_env_tool,
             commands::env_tool::install_env_tool,
+            commands::env_tool::uninstall_env_tool,
             // SSH commands
             commands::ssh::test_ssh_connection,
             commands::ssh::execute_ssh_command,

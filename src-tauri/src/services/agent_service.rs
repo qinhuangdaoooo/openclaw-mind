@@ -100,23 +100,13 @@ impl AgentService {
         let config_path = self.openclaw_home.join("openclaw.json");
         let mut config: OpenclawConfig = if config_path.exists() {
             let content = fs::read_to_string(&config_path).await?;
-            serde_json::from_str(&content)?
+            serde_json::from_str(content.trim_start_matches('\u{feff}'))?
         } else {
-            // 创建空配置
-            OpenclawConfig {
-                meta: None,
-                env: None,
-                gateway: None,
-                models: None,
-                agents: None,
-            }
+            OpenclawConfig::default()
         };
         
         // 添加新 Agent 到配置
-        let agents = config.agents.get_or_insert_with(|| AgentsConfig {
-            defaults: None,
-            list: Some(Vec::new()),
-        });
+        let agents = config.agents.get_or_insert_with(AgentsConfig::default);
         let list = agents.list.get_or_insert_with(Vec::new);
         
         // 检查是否已存在
@@ -127,7 +117,9 @@ impl AgentService {
                 workspace: Some(workspace.to_string()),
                 model: model.map(|m| crate::models::config::ModelConfig {
                     primary: Some(m.to_string()),
+                    ..Default::default()
                 }),
+                ..Default::default()
             });
         }
         
@@ -193,7 +185,7 @@ impl AgentService {
         let config_path = self.openclaw_home.join("openclaw.json");
         if config_path.exists() {
             let content = fs::read_to_string(&config_path).await?;
-            let mut config: OpenclawConfig = serde_json::from_str(&content)?;
+            let mut config: OpenclawConfig = serde_json::from_str(content.trim_start_matches('\u{feff}'))?;
             
             if let Some(agents) = config.agents.as_mut() {
                 if let Some(list) = agents.list.as_mut() {

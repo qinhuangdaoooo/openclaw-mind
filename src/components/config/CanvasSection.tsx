@@ -4,7 +4,7 @@ import { FieldGroup } from './FieldGroup'
 import { FormSection } from './FormSection'
 
 interface CanvasSectionProps {
-    canvasHost: { enabled: boolean; port: number } | undefined
+    canvasHost: { enabled?: boolean; port?: number } | undefined
     setCanvasEnabled: (enabled: boolean) => void
     setCanvasPort: (port: number) => void
 }
@@ -36,7 +36,7 @@ export function CanvasSection({ canvasHost, setCanvasEnabled, setCanvasPort }: C
                 {canvasHost?.enabled !== false && (
                     <FieldGroup
                         label="端口 (port)"
-                        hint={`访问路径：http://127.0.0.1:${canvasHost?.port ?? 18793}/__openclaw__/canvas/`}
+                        description={`访问路径：http://127.0.0.1:${canvasHost?.port ?? 18793}/__openclaw__/canvas/`}
                     >
                         <input
                             type="number"

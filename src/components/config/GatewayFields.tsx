@@ -3,13 +3,15 @@
 import { FieldGroup } from './FieldGroup'
 
 interface GatewayConfig {
-    mode: string
-    port: number
+    mode?: string
+    port?: number
     auth?: {
-        mode: string
+        mode?: string
         token?: string
         password?: string
+        [key: string]: any
     }
+    [key: string]: any
 }
 
 interface GatewayFieldsProps {

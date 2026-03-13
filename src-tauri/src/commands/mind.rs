@@ -125,7 +125,7 @@ pub async fn invoke_agent(
     let config = config_service.read().await.map_err(|e| e.to_string())?;
 
     // 获取 Provider 配置
-    let provider_id = config
+    let provider_ref = config
         .agents
         .as_ref()
         .and_then(|a| a.list.as_ref())
@@ -143,6 +143,11 @@ pub async fn invoke_agent(
         .cloned()
         .ok_or_else(|| "请先在配置中设置默认模型 Provider".to_string())?;
 
+    let (provider_id, model_from_ref) = match provider_ref.split_once('/') {
+        Some((provider, model)) => (provider.to_string(), Some(model.to_string())),
+        None => (provider_ref.clone(), None),
+    };
+
     let providers = config
         .models
         .as_ref()
@@ -154,13 +159,11 @@ pub async fn invoke_agent(
         .ok_or_else(|| format!("未找到 Provider: {}", provider_id))?;
 
     let api_key = provider_config
-        .api_key
-        .as_deref()
+        .api_key_value()
         .ok_or_else(|| format!("Provider {} 未配置 API Key", provider_id))?;
 
     let base_url = provider_config
-        .base_url
-        .as_deref()
+        .base_url_value()
         .unwrap_or_else(|| provider_config.api.as_str());
     let base_url = normalize_base_url(base_url);
 
@@ -205,11 +208,13 @@ pub async fn invoke_agent(
     }
 
     // 调用 LLM
-    let model = provider_config
-        .models
-        .as_ref()
-        .and_then(|v| v.first())
-        .map(|s| s.as_str());
+    let model = model_from_ref.as_deref().or_else(|| {
+        provider_config
+            .models
+            .as_ref()
+            .and_then(|v| v.first())
+            .and_then(|model| model.model_id())
+    });
 
     let agent_response = AiService::chat_completion(
         api_key,

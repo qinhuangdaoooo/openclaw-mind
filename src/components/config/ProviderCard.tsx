@@ -1,17 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { FieldGroup } from './FieldGroup'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { TagInput } from './TagInput'
-import { configApi } from '@/lib/tauri'
-
-interface ProviderConfig {
-    api: string
-    api_key?: string
-    base_url?: string
-    models?: string[]
-}
+import {
+    buildProviderPrimary,
+    configApi,
+    getProviderApiKey,
+    getProviderBaseUrl,
+    getProviderModelId,
+    getProviderModelLabel,
+    type ProviderConfig,
+} from '@/lib/tauri'
 
 interface ProviderCardProps {
     name: string
@@ -19,7 +20,7 @@ interface ProviderCardProps {
     isDefault: boolean
     onUpdate: (updates: Partial<ProviderConfig>) => void
     onRemove: () => void
-    onSetDefault: () => void
+    onSetDefault: (primary: string) => void
 }
 
 export function ProviderCard({ name, provider, isDefault, onUpdate, onRemove, onSetDefault }: ProviderCardProps) {
@@ -28,12 +29,39 @@ export function ProviderCard({ name, provider, isDefault, onUpdate, onRemove, on
     const [settingDefault, setSettingDefault] = useState(false)
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
+    const modelTags = useMemo(
+        () => (provider.models ?? []).map((model) => getProviderModelLabel(model)).filter(Boolean),
+        [provider.models]
+    )
+
+    const syncModelEntries = (labels: string[]) => {
+        const nextModels = labels
+            .map((label, index) => {
+                const trimmed = label.trim()
+                if (!trimmed) return null
+
+                const previous = provider.models?.[index]
+                if (previous && typeof previous !== 'string') {
+                    return {
+                        ...previous,
+                        id: trimmed,
+                        name: trimmed,
+                    }
+                }
+
+                return trimmed
+            })
+            .filter(Boolean)
+
+        onUpdate({ models: nextModels as ProviderConfig['models'] })
+    }
+
     const handleSetDefault = async (e: React.MouseEvent) => {
         e.stopPropagation()
         setSettingDefault(true)
         try {
             await configApi.setDefaultProvider(name)
-            onSetDefault()
+            onSetDefault(buildProviderPrimary(name, provider))
         } catch (err) {
             console.error('Failed to set default provider:', err)
             alert(`设置默认提供商失败: ${err}`)
@@ -42,9 +70,12 @@ export function ProviderCard({ name, provider, isDefault, onUpdate, onRemove, on
         }
     }
 
+    const baseUrl = getProviderBaseUrl(provider) || ''
+    const apiKey = getProviderApiKey(provider) || ''
+    const firstModelId = provider.models?.map((item) => getProviderModelId(item)).find(Boolean)
+
     return (
         <div className={`bg-gray-800 border rounded-lg overflow-hidden ${isDefault ? 'border-blue-500' : 'border-gray-700'}`}>
-            {/* Header */}
             <div
                 className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-750"
                 onClick={() => setIsExpanded(!isExpanded)}
@@ -62,7 +93,10 @@ export function ProviderCard({ name, provider, isDefault, onUpdate, onRemove, on
                                 </span>
                             )}
                         </div>
-                        <p className="text-xs text-gray-400">{provider.api}</p>
+                        <p className="text-xs text-gray-400">{baseUrl || provider.api || '未配置地址'}</p>
+                        {firstModelId && (
+                            <p className="text-[11px] text-gray-500 mt-0.5">首选模型：{firstModelId}</p>
+                        )}
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -87,26 +121,32 @@ export function ProviderCard({ name, provider, isDefault, onUpdate, onRemove, on
                 </div>
             </div>
 
-            {/* Body */}
             {isExpanded && (
                 <div className="px-4 py-3 border-t border-gray-700 space-y-3">
-                    <FieldGroup label="API 地址" description="模型服务的 HTTP 接口地址，对应配置中的 models.providers.&lt;name&gt;.api">
+                    <FieldGroup label="Base URL" description="模型服务的基础地址，对应 baseUrl / base_url">
                         <input
                             type="text"
-                            value={provider.api || ''}
-                            onChange={(e) => {
-                                const url = e.target.value
-                                onUpdate({ api: url, base_url: url })
-                            }}
+                            value={baseUrl}
+                            onChange={(e) => onUpdate({ baseUrl: e.target.value, base_url: e.target.value })}
                             className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-blue-500"
                             placeholder="https://api.openai.com/v1"
                         />
                     </FieldGroup>
 
-                    <FieldGroup label="可用模型" description="为该提供商配置可选模型列表，例如 gpt-4o, gpt-4o-mini">
+                    <FieldGroup label="API 协议" description="例如 openai-responses、anthropic-messages">
+                        <input
+                            type="text"
+                            value={provider.api || ''}
+                            onChange={(e) => onUpdate({ api: e.target.value })}
+                            className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-blue-500"
+                            placeholder="openai-responses"
+                        />
+                    </FieldGroup>
+
+                    <FieldGroup label="可用模型" description="支持字符串模型名，也兼容对象模型，编辑时会保留原有对象结构">
                         <TagInput
-                            values={provider.models ?? []}
-                            onChange={(models) => onUpdate({ models })}
+                            values={modelTags}
+                            onChange={syncModelEntries}
                             placeholder="输入模型名称，按 Enter 添加"
                         />
                     </FieldGroup>
@@ -115,8 +155,8 @@ export function ProviderCard({ name, provider, isDefault, onUpdate, onRemove, on
                         <div className="flex gap-2">
                             <input
                                 type={showKey ? 'text' : 'password'}
-                                value={provider.api_key || ''}
-                                onChange={(e) => onUpdate({ api_key: e.target.value })}
+                                value={apiKey}
+                                onChange={(e) => onUpdate({ apiKey: e.target.value, api_key: e.target.value })}
                                 className="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-blue-500"
                                 placeholder="sk-..."
                             />

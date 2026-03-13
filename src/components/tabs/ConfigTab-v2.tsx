@@ -1,7 +1,16 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { configApi, OpenclawConfig } from '@/lib/tauri'
+import {
+    buildProviderPrimary,
+    configApi,
+    getDefaultProviderId,
+    getProviderApiKey,
+    getProviderBaseUrl,
+    getProviderModelId,
+    OpenclawConfig,
+    ProviderConfig,
+} from '@/lib/tauri'
 import { FormSection } from '@/components/config/FormSection'
 import { GatewayFields } from '@/components/config/GatewayFields'
 import { ProviderCard } from '@/components/config/ProviderCard'
@@ -22,7 +31,11 @@ function getConfigIssues(config: OpenclawConfig): ValidationIssue[] {
     }
 
     for (const [name, provider] of Object.entries(providers)) {
-        if (!provider.models || provider.models.length === 0) {
+        const modelIds = (provider.models ?? [])
+            .map((model) => getProviderModelId(model))
+            .filter((model): model is string => Boolean(model?.trim()))
+
+        if (modelIds.length === 0) {
             issues.push({
                 type: 'error',
                 key: `${name}:no-models`,
@@ -30,7 +43,7 @@ function getConfigIssues(config: OpenclawConfig): ValidationIssue[] {
             })
         }
 
-        if (!provider.api_key?.trim()) {
+        if (!getProviderApiKey(provider)?.trim()) {
             issues.push({
                 type: 'warning',
                 key: `${name}:no-apikey`,
@@ -38,7 +51,7 @@ function getConfigIssues(config: OpenclawConfig): ValidationIssue[] {
             })
         }
 
-        if (!provider.base_url?.trim() && !provider.api?.trim()) {
+        if (!getProviderBaseUrl(provider)?.trim()) {
             issues.push({
                 type: 'warning',
                 key: `${name}:no-baseurl`,
@@ -137,7 +150,7 @@ export default function ConfigTabV2() {
         setConfig({ ...config, gateway })
     }
 
-    const updateProvider = (name: string, updates: Partial<NonNullable<OpenclawConfig['models']>['providers'][string]>) => {
+    const updateProvider = (name: string, updates: Partial<ProviderConfig>) => {
         if (!config) return
         const providers = config.models?.providers || {}
         setConfig({
@@ -155,7 +168,7 @@ export default function ConfigTabV2() {
 
     const removeProvider = (name: string) => {
         if (!config) return
-        const providers = { ...config.models?.providers }
+        const providers = { ...(config.models?.providers ?? {}) }
         delete providers[name]
         setConfig({
             ...config,
@@ -179,8 +192,9 @@ export default function ConfigTabV2() {
                     ...providers,
                     [newProviderName]: {
                         api: '',
-                        base_url: '',
-                        api_key: ''
+                        baseUrl: '',
+                        apiKey: '',
+                        models: []
                     }
                 }
             }
@@ -377,7 +391,7 @@ export default function ConfigTabV2() {
     const canSave = !loading && isDirty && saveStatus !== 'saving' && !!config && !hasErrors
 
     const providerEntries = Object.entries(config?.models?.providers || {})
-    const defaultProviderId = config?.agents?.defaults?.model?.primary
+    const defaultProviderId = getDefaultProviderId(config)
 
     if (loading && !config) {
         return (
@@ -520,7 +534,7 @@ export default function ConfigTabV2() {
                                         isDefault={defaultProviderId === name}
                                         onUpdate={(updates) => updateProvider(name, updates)}
                                         onRemove={() => removeProvider(name)}
-                                        onSetDefault={() => updateAgentDefaultModel(name)}
+                                        onSetDefault={(primary) => updateAgentDefaultModel(primary || buildProviderPrimary(name, provider))}
                                     />
                                 ))}
                             </div>

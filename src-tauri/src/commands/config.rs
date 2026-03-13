@@ -72,7 +72,8 @@ pub async fn get_providers(
         .and_then(|a| a.defaults.as_ref())
         .and_then(|d| d.model.as_ref())
         .and_then(|m| m.primary.as_ref())
-        .map(|s| s.as_str());
+        .and_then(|s| s.split('/').next())
+        .map(|s| s.to_string());
     
     println!("Default provider: {:?}", default_provider);
     
@@ -94,9 +95,12 @@ pub async fn get_providers(
             providers.push(ProviderInfo {
                 id: id.clone(),
                 name: name.to_string(),
-                api: provider_config.api,
-                has_api_key: provider_config.api_key.is_some(),
-                is_default: default_provider == Some(id.as_str()),
+                api: provider_config
+                    .base_url
+                    .clone()
+                    .unwrap_or(provider_config.api),
+                has_api_key: provider_config.api_key_value().is_some(),
+                is_default: default_provider.as_deref() == Some(id.as_str()),
             });
         }
     } else {
@@ -116,31 +120,33 @@ pub async fn set_default_provider(
     
     // 确保 agents 结构存在
     if config.agents.is_none() {
-        config.agents = Some(crate::models::config::AgentsConfig {
-            defaults: None,
-            list: None,
-        });
+        config.agents = Some(crate::models::config::AgentsConfig::default());
     }
     
     let agents = config.agents.as_mut().unwrap();
     
     if agents.defaults.is_none() {
-        agents.defaults = Some(crate::models::config::AgentDefaults {
-            workspace: None,
-            model: None,
-        });
+        agents.defaults = Some(crate::models::config::AgentDefaults::default());
     }
     
     let defaults = agents.defaults.as_mut().unwrap();
     
     if defaults.model.is_none() {
-        defaults.model = Some(crate::models::config::ModelConfig {
-            primary: None,
-        });
+        defaults.model = Some(crate::models::config::ModelConfig::default());
     }
     
+    let default_model = config
+        .models
+        .as_ref()
+        .and_then(|models| models.providers.get(&provider_id))
+        .and_then(|provider| provider.models.as_ref())
+        .and_then(|models| models.first())
+        .and_then(|model| model.model_id())
+        .map(|model_id| format!("{}/{}", provider_id, model_id))
+        .unwrap_or_else(|| provider_id.clone());
+
     let model = defaults.model.as_mut().unwrap();
-    model.primary = Some(provider_id);
+    model.primary = Some(default_model);
     
     config_service.write(&config).await.map_err(|e| e.to_string())
 }

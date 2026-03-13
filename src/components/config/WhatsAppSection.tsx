@@ -26,7 +26,7 @@ export function WhatsAppSection({
             <div className="space-y-3">
                 <FieldGroup
                     label="群组策略 (groupPolicy)"
-                    hint="open：允许所有群组消息；allowlist：仅允许 allowFrom 白名单中的号码"
+                    description="open：允许所有群组消息；allowlist：仅允许 allowFrom 白名单中的号码"
                 >
                     <SegmentedControl
                         value={config?.channels?.whatsapp?.groupPolicy ?? 'open'}
@@ -40,7 +40,7 @@ export function WhatsAppSection({
 
                 <FieldGroup
                     label="允许的号码白名单 (allowFrom)"
-                    hint="填写国际格式号码；仅在群组策略为「白名单」时生效"
+                    description="填写国际格式号码；仅在群组策略为「白名单」时生效"
                 >
                     <TagInput
                         values={config?.channels?.whatsapp?.allowFrom ?? []}
