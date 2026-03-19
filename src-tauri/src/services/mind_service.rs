@@ -60,13 +60,21 @@ impl MindService {
         Ok(data.rooms)
     }
 
-    pub async fn create_room(&self, title: String) -> Result<Room> {
+    pub async fn create_room(&self, title: String, project_path: Option<String>) -> Result<Room> {
         let mut data = self.load().await?;
         let id = Uuid::new_v4().to_string();
         let room = Room {
             id: id.clone(),
             title,
             created_at: Self::now_secs(),
+            project_path: project_path.and_then(|path| {
+                let trimmed = path.trim().to_string();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed)
+                }
+            }),
             agent_ids: vec![],
         };
         data.rooms.push(room.clone());
@@ -76,7 +84,12 @@ impl MindService {
 
     pub async fn list_messages(&self, room_id: &str) -> Result<Vec<Message>> {
         let data = self.load().await?;
-        let mut msgs: Vec<_> = data.messages.iter().filter(|m| m.room_id == room_id).cloned().collect();
+        let mut msgs: Vec<_> = data
+            .messages
+            .iter()
+            .filter(|m| m.room_id == room_id)
+            .cloned()
+            .collect();
         msgs.sort_by_key(|m| m.created_at);
         Ok(msgs)
     }
@@ -106,7 +119,12 @@ impl MindService {
 
     pub async fn list_tasks(&self, room_id: &str) -> Result<Vec<Task>> {
         let data = self.load().await?;
-        let tasks: Vec<_> = data.tasks.iter().filter(|t| t.room_id == room_id).cloned().collect();
+        let tasks: Vec<_> = data
+            .tasks
+            .iter()
+            .filter(|t| t.room_id == room_id)
+            .cloned()
+            .collect();
         Ok(tasks)
     }
 
@@ -157,6 +175,30 @@ impl MindService {
             .find(|r| r.id == room_id)
             .ok_or_else(|| AppError::Other(format!("房间不存在: {}", room_id)))?;
         room.agent_ids = agent_ids;
+        let cloned = room.clone();
+        self.save(&data).await?;
+        Ok(cloned)
+    }
+
+    pub async fn update_room_project_path(
+        &self,
+        room_id: &str,
+        project_path: Option<String>,
+    ) -> Result<Room> {
+        let mut data = self.load().await?;
+        let room = data
+            .rooms
+            .iter_mut()
+            .find(|r| r.id == room_id)
+            .ok_or_else(|| AppError::Other(format!("房间不存在: {}", room_id)))?;
+        room.project_path = project_path.and_then(|path| {
+            let trimmed = path.trim().to_string();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
+        });
         let cloned = room.clone();
         self.save(&data).await?;
         Ok(cloned)

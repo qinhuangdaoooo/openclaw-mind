@@ -92,13 +92,15 @@ pub async fn get_providers(
                 _ => &id,
             };
             
+            let api = provider_config
+                .base_url
+                .clone()
+                .unwrap_or_else(|| provider_config.api.clone());
+
             providers.push(ProviderInfo {
                 id: id.clone(),
                 name: name.to_string(),
-                api: provider_config
-                    .base_url
-                    .clone()
-                    .unwrap_or(provider_config.api),
+                api,
                 has_api_key: provider_config.api_key_value().is_some(),
                 is_default: default_provider.as_deref() == Some(id.as_str()),
             });

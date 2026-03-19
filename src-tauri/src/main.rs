@@ -70,6 +70,7 @@ fn main() {
             commands::ssh::execute_ssh_command,
             commands::ssh::upload_ssh_file,
             // System commands
+            commands::system::pick_folder,
             commands::system::open_path_in_finder,
             // ClawHub commands
             commands::clawhub::search_clawhub_skills,
@@ -84,6 +85,7 @@ fn main() {
             commands::mind::create_task,
             commands::mind::update_task_status,
             commands::mind::update_room_agents,
+            commands::mind::update_room_project_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

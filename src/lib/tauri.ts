@@ -166,9 +166,45 @@ export interface ProviderInfo {
     is_default: boolean
 }
 
+function normalizeProviderConfig(provider: ProviderConfig): ProviderConfig {
+    const normalized: ProviderConfig = { ...provider }
+
+    const apiKey = provider.apiKey ?? provider.api_key
+    const baseUrl = provider.baseUrl ?? provider.base_url
+
+    delete normalized.apiKey
+    delete normalized.baseUrl
+
+    if (apiKey !== undefined) normalized.api_key = apiKey
+    if (baseUrl !== undefined) normalized.base_url = baseUrl
+
+    return normalized
+}
+
+function normalizeConfigForWrite(config: OpenclawConfig): OpenclawConfig {
+    const next: OpenclawConfig = {
+        ...config,
+    }
+
+    if (config.models?.providers) {
+        next.models = {
+            ...config.models,
+            providers: Object.fromEntries(
+                Object.entries(config.models.providers).map(([id, provider]) => [
+                    id,
+                    normalizeProviderConfig(provider),
+                ])
+            ),
+        }
+    }
+
+    return next
+}
+
 export const configApi = {
     read: () => invoke<OpenclawConfig>('read_config'),
-    write: (config: OpenclawConfig) => invoke('write_config', { config }),
+    write: (config: OpenclawConfig) =>
+        invoke('write_config', { config: normalizeConfigForWrite(config) }),
     validate: (jsonStr: string) => invoke<ValidationResult>('validate_config_json', { jsonStr }),
     reloadGateway: () => invoke<string>('reload_gateway'),
     getProviders: () => invoke<ProviderInfo[]>('get_providers'),
@@ -362,6 +398,7 @@ export const sshApi = {
 
 // 系统 API
 export const systemApi = {
+    pickFolder: () => invoke<string | null>('pick_folder'),
     openPathInFinder: (path: string) =>
         invoke('open_path_in_finder', { path }),
 }
@@ -392,6 +429,7 @@ export interface Room {
     id: string
     title: string
     created_at: number
+    project_path?: string
     agent_ids?: string[]
 }
 
@@ -418,7 +456,8 @@ export interface MindTask {
 
 export const mindApi = {
     listRooms: () => invoke<Room[]>('list_rooms'),
-    createRoom: (title: string) => invoke<Room>('create_room', { title }),
+    createRoom: (title: string, projectPath?: string) =>
+        invoke<Room>('create_room', { title, projectPath }),
     listMessages: (roomId: string) => invoke<Message[]>('list_messages', { roomId }),
     appendMessage: (
         roomId: string,
@@ -451,4 +490,6 @@ export const mindApi = {
         invoke<MindTask>('update_task_status', { taskId, status }),
     updateRoomAgents: (roomId: string, agentIds: string[]) =>
         invoke<Room>('update_room_agents', { roomId, agentIds }),
+    updateRoomProjectPath: (roomId: string, projectPath?: string) =>
+        invoke<Room>('update_room_project_path', { roomId, projectPath }),
 }

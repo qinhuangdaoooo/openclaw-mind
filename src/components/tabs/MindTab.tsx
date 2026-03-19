@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
     mindApi,
     agentApi,
+    systemApi,
     Room,
     Message,
     MindTask,
@@ -78,16 +79,21 @@ export default function MindTab() {
     const [agents, setAgents] = useState<Agent[]>([])
     const [selectedAgentId, setSelectedAgentId] = useState<string>('')
     const [newRoomTitle, setNewRoomTitle] = useState('')
+    const [newRoomProjectPath, setNewRoomProjectPath] = useState('')
     const [newMessage, setNewMessage] = useState('')
     const [newTaskTitle, setNewTaskTitle] = useState('')
     const [newTaskDesc, setNewTaskDesc] = useState('')
+    const [roomProjectPath, setRoomProjectPath] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [notice, setNotice] = useState<string | null>(null)
     const [creatingRoom, setCreatingRoom] = useState(false)
     const [sendingMessage, setSendingMessage] = useState(false)
     const [creatingTask, setCreatingTask] = useState(false)
     const [invokingAgent, setInvokingAgent] = useState(false)
     const [savingAgents, setSavingAgents] = useState(false)
+    const [savingProjectPath, setSavingProjectPath] = useState(false)
+    const [pickingFolder, setPickingFolder] = useState(false)
     const [atMentionOpen, setAtMentionOpen] = useState(false)
     const [atMentionFilter, setAtMentionFilter] = useState('')
     const [atMentionHighlight, setAtMentionHighlight] = useState(0)
@@ -166,16 +172,27 @@ export default function MindTab() {
         }
     }, [selectedRoomId, loadMessages, loadTasks])
 
+    useEffect(() => {
+        const room = rooms.find((item) => item.id === selectedRoomId)
+        setRoomProjectPath(room?.project_path || '')
+    }, [rooms, selectedRoomId])
+
     const handleCreateRoom = async () => {
         const title = newRoomTitle.trim()
         if (!title) return
         setCreatingRoom(true)
         setError(null)
+        setNotice(null)
         try {
-            const room = await mindApi.createRoom(title)
+            const room = await mindApi.createRoom(
+                title,
+                newRoomProjectPath.trim() || undefined
+            )
             setRooms((prev) => [room, ...prev])
             setSelectedRoomId(room.id)
             setNewRoomTitle('')
+            setNewRoomProjectPath('')
+            setNotice('房间已创建')
         } catch (e) {
             setError(String(e))
         } finally {
@@ -188,6 +205,7 @@ export default function MindTab() {
         if (!content || !selectedRoomId) return
         setSendingMessage(true)
         setError(null)
+        setNotice(null)
         const mentionedAgentId = extractLastMentionAgentId(content, agents)
         // 若 @ 了某人：只由该 Agent 回复；否则由本房间内所有 Agent 共享上下文并依次回复
         const agentsToInvoke: string[] =
@@ -246,6 +264,7 @@ export default function MindTab() {
         if (!title || !selectedRoomId) return
         setCreatingTask(true)
         setError(null)
+        setNotice(null)
         try {
             const task = await mindApi.createTask(
                 selectedRoomId,
@@ -284,15 +303,55 @@ export default function MindTab() {
             : [...roomAgentIds, agentId]
         setSavingAgents(true)
         setError(null)
+        setNotice(null)
         try {
             const updated = await mindApi.updateRoomAgents(selectedRoomId, next)
             setRooms((prev) =>
                 prev.map((r) => (r.id === selectedRoomId ? updated : r))
             )
+            setNotice('房间成员已更新')
         } catch (e) {
             setError(String(e))
         } finally {
             setSavingAgents(false)
+        }
+    }
+
+    const handlePickFolder = async (
+        setter: (value: string) => void
+    ) => {
+        setPickingFolder(true)
+        setError(null)
+        try {
+            const path = await systemApi.pickFolder()
+            if (path) setter(path)
+        } catch (e) {
+            setError(String(e))
+        } finally {
+            setPickingFolder(false)
+        }
+    }
+
+    const handleSaveRoomProjectPath = async () => {
+        if (!selectedRoomId) return
+        setSavingProjectPath(true)
+        setError(null)
+        setNotice(null)
+        try {
+            const updated = await mindApi.updateRoomProjectPath(
+                selectedRoomId,
+                roomProjectPath.trim() || undefined
+            )
+            setRooms((prev) =>
+                prev.map((r) => (r.id === selectedRoomId ? updated : r))
+            )
+            setNotice(
+                roomProjectPath.trim() ? '项目目录已保存' : '项目目录已清空'
+            )
+        } catch (e) {
+            setError(String(e))
+        } finally {
+            setSavingProjectPath(false)
         }
     }
 
@@ -383,6 +442,12 @@ export default function MindTab() {
                 </div>
             )}
 
+            {notice && (
+                <div className="mb-4 px-4 py-2 bg-emerald-900/30 border border-emerald-700 rounded-lg text-emerald-200 text-sm">
+                    {notice}
+                </div>
+            )}
+
             <div className="flex-1 flex gap-4 min-h-0">
                 {/* 左侧：房间列表 */}
                 <div className="w-56 flex-shrink-0 flex flex-col bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
@@ -440,6 +505,45 @@ export default function MindTab() {
                                 <h2 className="font-medium text-white">
                                     {selectedRoom.title || '未命名房间'}
                                 </h2>
+                                <div className="mt-3">
+                                    <span className="text-xs text-gray-500">项目目录</span>
+                                    <div className="flex gap-2 mt-1">
+                                        <input
+                                            type="text"
+                                            value={roomProjectPath}
+                                            onChange={(e) => setRoomProjectPath(e.target.value)}
+                                            placeholder="给团队房间绑定项目目录"
+                                            className="flex-1 px-3 py-2 rounded-lg bg-gray-800 text-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => handlePickFolder(setRoomProjectPath)}
+                                            disabled={pickingFolder}
+                                            className="px-3 py-2 rounded-lg bg-gray-800 text-gray-200 text-sm hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            选择
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleSaveRoomProjectPath}
+                                            disabled={savingProjectPath}
+                                            className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {savingProjectPath ? '保存中' : '保存'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                roomProjectPath.trim() &&
+                                                systemApi.openPathInFinder(roomProjectPath.trim())
+                                            }
+                                            disabled={!roomProjectPath.trim()}
+                                            className="px-3 py-2 rounded-lg bg-gray-800 text-gray-200 text-sm hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            打开
+                                        </button>
+                                    </div>
+                                </div>
                                 <div className="mt-2">
                                     <span className="text-xs text-gray-500">本房间 Agent：</span>
                                     <div className="flex flex-wrap gap-2 mt-1">
