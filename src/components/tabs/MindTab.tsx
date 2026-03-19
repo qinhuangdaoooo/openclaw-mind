@@ -71,6 +71,100 @@ function extractLastMentionAgentId(
     return best?.id ?? null
 }
 
+interface BrowserSpeechRecognitionAlternative {
+    transcript: string
+}
+
+interface BrowserSpeechRecognitionResult {
+    isFinal: boolean
+    [index: number]: BrowserSpeechRecognitionAlternative
+}
+
+interface BrowserSpeechRecognitionResultList {
+    length: number
+    [index: number]: BrowserSpeechRecognitionResult
+}
+
+interface BrowserSpeechRecognitionEvent {
+    results: BrowserSpeechRecognitionResultList
+}
+
+interface BrowserSpeechRecognitionErrorEvent {
+    error: string
+}
+
+interface BrowserSpeechRecognition {
+    lang: string
+    continuous: boolean
+    interimResults: boolean
+    maxAlternatives: number
+    start: () => void
+    stop: () => void
+    abort: () => void
+    onstart: ((event: Event) => void) | null
+    onresult: ((event: BrowserSpeechRecognitionEvent) => void) | null
+    onerror: ((event: BrowserSpeechRecognitionErrorEvent) => void) | null
+    onend: ((event: Event) => void) | null
+}
+
+type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition
+
+declare global {
+    interface Window {
+        SpeechRecognition?: BrowserSpeechRecognitionConstructor
+        webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor
+    }
+}
+
+function getSpeechRecognitionConstructor():
+    | BrowserSpeechRecognitionConstructor
+    | null {
+    if (typeof window === 'undefined') return null
+    return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null
+}
+
+function mergeTranscriptIntoMessage(base: string, transcript: string): string {
+    const prefix = base.trimEnd()
+    const suffix = transcript.trim()
+    if (!prefix) return suffix
+    if (!suffix) return prefix
+    return `${prefix} ${suffix}`
+}
+
+function getSpeechRecognitionErrorMessage(error: string): string {
+    switch (error) {
+        case 'not-allowed':
+            return '麦克风权限被拒绝，请先在系统里允许访问麦克风。'
+        case 'service-not-allowed':
+            return '当前环境禁止使用语音识别服务。'
+        case 'audio-capture':
+            return '没有检测到可用的麦克风设备。'
+        case 'no-speech':
+            return '没有识别到语音，请再试一次。'
+        case 'network':
+            return '语音识别网络异常，请稍后重试。'
+        default:
+            return '语音输入失败，请稍后再试。'
+    }
+}
+
+function pickPreferredChineseVoice(
+    voices: SpeechSynthesisVoice[]
+): SpeechSynthesisVoice | null {
+    const chineseVoices = voices.filter((voice) =>
+        voice.lang.toLowerCase().startsWith('zh')
+    )
+    if (chineseVoices.length === 0) return voices[0] ?? null
+    return (
+        chineseVoices.find(
+            (voice) =>
+                /zh-cn|zh-hans/i.test(voice.lang) ||
+                /xiaoxiao|xiaoyi|yunxi|mandarin|chinese/i.test(voice.name)
+        ) ??
+        chineseVoices[0]
+    )
+}
+
 export default function MindTab() {
     const [rooms, setRooms] = useState<Room[]>([])
     const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
@@ -97,9 +191,80 @@ export default function MindTab() {
     const [atMentionOpen, setAtMentionOpen] = useState(false)
     const [atMentionFilter, setAtMentionFilter] = useState('')
     const [atMentionHighlight, setAtMentionHighlight] = useState(0)
+    const [speechRecognitionSupported, setSpeechRecognitionSupported] =
+        useState(false)
+    const [speechSynthesisSupported, setSpeechSynthesisSupported] =
+        useState(false)
+    const [isListening, setIsListening] = useState(false)
+    const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(
+        null
+    )
+    const [voiceError, setVoiceError] = useState<string | null>(null)
     const inputRef = useRef<HTMLInputElement>(null)
     const atListRef = useRef<HTMLDivElement>(null)
     const messageListRef = useRef<HTMLDivElement>(null)
+    const recognitionRef = useRef<BrowserSpeechRecognition | null>(null)
+    const listeningBaseMessageRef = useRef('')
+
+    const applyMessageChange = useCallback((value: string) => {
+        setNewMessage(value)
+        const lastAt = value.lastIndexOf('@')
+        if (lastAt !== -1) {
+            setAtMentionOpen(true)
+            setAtMentionFilter(value.slice(lastAt + 1))
+            setAtMentionHighlight(0)
+        } else {
+            setAtMentionOpen(false)
+            setAtMentionFilter('')
+        }
+    }, [])
+
+    const disposeRecognition = useCallback(() => {
+        const recognition = recognitionRef.current
+        if (!recognition) return
+        recognition.onstart = null
+        recognition.onresult = null
+        recognition.onerror = null
+        recognition.onend = null
+        recognitionRef.current = null
+        try {
+            recognition.abort()
+        } catch {
+            // ignore
+        }
+    }, [])
+
+    const stopSpeaking = useCallback(() => {
+        if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+            return
+        }
+        window.speechSynthesis.cancel()
+        setSpeakingMessageId(null)
+    }, [])
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+        setSpeechRecognitionSupported(Boolean(getSpeechRecognitionConstructor()))
+        setSpeechSynthesisSupported(
+            'speechSynthesis' in window &&
+                typeof window.speechSynthesis !== 'undefined' &&
+                typeof SpeechSynthesisUtterance !== 'undefined'
+        )
+
+        return () => {
+            disposeRecognition()
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel()
+            }
+        }
+    }, [disposeRecognition])
+
+    useEffect(() => {
+        disposeRecognition()
+        stopSpeaking()
+        setIsListening(false)
+        setVoiceError(null)
+    }, [selectedRoomId, disposeRecognition, stopSpeaking])
 
     useEffect(() => {
         const el = messageListRef.current
@@ -206,6 +371,7 @@ export default function MindTab() {
         setSendingMessage(true)
         setError(null)
         setNotice(null)
+        setVoiceError(null)
         const mentionedAgentId = extractLastMentionAgentId(content, agents)
         // 若 @ 了某人：只由该 Agent 回复；否则由本房间内所有 Agent 共享上下文并依次回复
         const agentsToInvoke: string[] =
@@ -222,7 +388,7 @@ export default function MindTab() {
                 content
             )
             setMessages((prev) => [...prev, msg])
-            setNewMessage('')
+            applyMessageChange('')
 
             if (agentsToInvoke.length > 0) {
                 setInvokingAgent(true)
@@ -373,22 +539,13 @@ export default function MindTab() {
     )
 
     const handleMessageChange = (value: string) => {
-        setNewMessage(value)
-        const lastAt = value.lastIndexOf('@')
-        if (lastAt !== -1) {
-            setAtMentionOpen(true)
-            setAtMentionFilter(value.slice(lastAt + 1))
-            setAtMentionHighlight(0)
-        } else {
-            setAtMentionOpen(false)
-            setAtMentionFilter('')
-        }
+        applyMessageChange(value)
     }
 
     const handleSelectAtMember = (agentId: string, displayName: string) => {
         const lastAt = newMessage.lastIndexOf('@')
         const beforeAt = lastAt !== -1 ? newMessage.slice(0, lastAt) : newMessage
-        setNewMessage(`${beforeAt}@${displayName} `)
+        applyMessageChange(`${beforeAt}@${displayName} `)
         setSelectedAgentId(agentId)
         setAtMentionOpen(false)
         setAtMentionFilter('')
@@ -427,6 +584,118 @@ export default function MindTab() {
             handleSendMessage()
         }
     }
+
+    const handleStartListening = useCallback(() => {
+        const Recognition = getSpeechRecognitionConstructor()
+        if (!Recognition) {
+            setVoiceError(
+                '当前环境不支持语音输入，请使用支持麦克风识别的桌面环境。'
+            )
+            return
+        }
+
+        disposeRecognition()
+        listeningBaseMessageRef.current = newMessage.trim()
+
+        const recognition = new Recognition()
+        recognition.lang = 'zh-CN'
+        recognition.continuous = false
+        recognition.interimResults = true
+        recognition.maxAlternatives = 1
+        recognition.onstart = () => {
+            setIsListening(true)
+            setVoiceError(null)
+        }
+        recognition.onresult = (event) => {
+            let transcript = ''
+            for (let i = 0; i < event.results.length; i++) {
+                const part = event.results[i]?.[0]?.transcript ?? ''
+                transcript += part
+            }
+            applyMessageChange(
+                mergeTranscriptIntoMessage(
+                    listeningBaseMessageRef.current,
+                    transcript
+                )
+            )
+        }
+        recognition.onerror = (event) => {
+            if (event.error === 'aborted') return
+            setVoiceError(getSpeechRecognitionErrorMessage(event.error))
+        }
+        recognition.onend = () => {
+            recognitionRef.current = null
+            setIsListening(false)
+        }
+
+        recognitionRef.current = recognition
+
+        try {
+            recognition.start()
+        } catch {
+            recognitionRef.current = null
+            setIsListening(false)
+            setVoiceError('语音输入启动失败，请稍后再试。')
+        }
+    }, [applyMessageChange, disposeRecognition, newMessage])
+
+    const handleStopListening = useCallback(() => {
+        const recognition = recognitionRef.current
+        if (!recognition) return
+        try {
+            recognition.stop()
+        } catch {
+            setIsListening(false)
+        }
+    }, [])
+
+    const handleSpeakMessage = useCallback(
+        (messageId: string, content: string) => {
+            const text = content.trim()
+            if (!text) return
+            if (
+                typeof window === 'undefined' ||
+                !('speechSynthesis' in window) ||
+                typeof SpeechSynthesisUtterance === 'undefined'
+            ) {
+                setVoiceError('当前环境不支持消息朗读。')
+                return
+            }
+
+            const synthesis = window.speechSynthesis
+            if (speakingMessageId === messageId) {
+                synthesis.cancel()
+                setSpeakingMessageId(null)
+                return
+            }
+
+            synthesis.cancel()
+
+            const utterance = new SpeechSynthesisUtterance(text)
+            const preferredVoice = pickPreferredChineseVoice(synthesis.getVoices())
+            if (preferredVoice) {
+                utterance.voice = preferredVoice
+                utterance.lang = preferredVoice.lang
+            } else {
+                utterance.lang = 'zh-CN'
+            }
+            utterance.rate = 1
+            utterance.onend = () => {
+                setSpeakingMessageId((current) =>
+                    current === messageId ? null : current
+                )
+            }
+            utterance.onerror = () => {
+                setSpeakingMessageId(null)
+                setVoiceError('消息朗读失败，请稍后再试。')
+            }
+
+            setVoiceError(null)
+            setSpeakingMessageId(messageId)
+            synthesis.speak(utterance)
+        },
+        [speakingMessageId]
+    )
 
     return (
         <div className="h-full flex flex-col p-4">
@@ -624,6 +893,24 @@ export default function MindTab() {
                                                         {m.content}
                                                     </div>
                                                 </div>
+                                                {speechSynthesisSupported &&
+                                                    m.content.trim() && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleSpeakMessage(
+                                                                    m.id,
+                                                                    m.content
+                                                                )
+                                                            }
+                                                            className="mt-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                                                        >
+                                                            {speakingMessageId ===
+                                                            m.id
+                                                                ? '停止朗读'
+                                                                : '朗读'}
+                                                        </button>
+                                                    )}
                                             </div>
                                         </div>
                                     )
@@ -685,6 +972,27 @@ export default function MindTab() {
                                         className="flex-1 px-3 py-2 rounded-lg bg-gray-800 text-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                     <button
+                                        type="button"
+                                        onClick={
+                                            isListening
+                                                ? handleStopListening
+                                                : handleStartListening
+                                        }
+                                        disabled={!speechRecognitionSupported}
+                                        className={`px-3 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                                            isListening
+                                                ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                                                : 'bg-gray-800 text-gray-200 hover:bg-gray-700'
+                                        }`}
+                                        title={
+                                            speechRecognitionSupported
+                                                ? '语音输入'
+                                                : '当前环境不支持语音输入'
+                                        }
+                                    >
+                                        {isListening ? '停止听写' : '语音输入'}
+                                    </button>
+                                    <button
                                         onClick={handleSendMessage}
                                         disabled={
                                             sendingMessage ||
@@ -698,6 +1006,29 @@ export default function MindTab() {
                                             : '发送'}
                                     </button>
                                 </div>
+                                {(voiceError ||
+                                    isListening ||
+                                    !speechRecognitionSupported ||
+                                    !speechSynthesisSupported) && (
+                                    <div
+                                        className={`mt-2 text-xs ${
+                                            voiceError
+                                                ? 'text-red-300'
+                                                : 'text-gray-500'
+                                        }`}
+                                    >
+                                        {voiceError
+                                            ? voiceError
+                                            : isListening
+                                              ? '正在听写，请直接说话，识别结果会实时写入输入框。'
+                                              : !speechRecognitionSupported &&
+                                                  !speechSynthesisSupported
+                                                ? '当前环境暂不支持语音输入和消息朗读。'
+                                                : !speechRecognitionSupported
+                                                  ? '当前环境不支持语音输入，但仍可使用消息朗读。'
+                                                  : '当前环境不支持消息朗读，但仍可使用语音输入。'}
+                                    </div>
+                                )}
                             </div>
                         </>
                     ) : (

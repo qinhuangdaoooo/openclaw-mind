@@ -110,6 +110,11 @@ impl ClawHubService {
                                 source: SkillSource::ClawHub,
                                 version: None,
                                 author: None,
+                                location: None,
+                                kind: Some("clawhub-skill".to_string()),
+                                origin: Some("clawhub".to_string()),
+                                tags: None,
+                                enabled: Some(true),
                             })
                         })
                         .take(limit)

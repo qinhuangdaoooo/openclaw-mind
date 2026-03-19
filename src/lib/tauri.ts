@@ -288,6 +288,11 @@ export interface Skill {
     source: 'local' | 'clawhub' | 'recommended'
     version?: string
     author?: string
+    location?: string
+    kind?: string
+    origin?: string
+    tags?: string[]
+    enabled?: boolean
 }
 
 export interface StreamChunk {

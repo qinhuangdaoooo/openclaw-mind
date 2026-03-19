@@ -48,6 +48,11 @@ pub async fn recommend_skills(
             source: SkillSource::Recommended,
             version: None,
             author: None,
+            location: None,
+            kind: None,
+            origin: None,
+            tags: None,
+            enabled: None,
         })
         .collect();
 
